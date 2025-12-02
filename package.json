@@ -1,0 +1,62 @@
+{
+  "name": "thejoker",
+  "version": "1.0.0",
+  "description": "The Joker - An agentic terminal powered by LM Studio for web scraping and autonomous coding",
+  "main": "dist/index.js",
+  "scripts": {
+    "start": "node dist/index.js",
+    "dev": "ts-node src/index.ts",
+    "build": "tsc",
+    "build:watch": "tsc --watch",
+    "test": "jest",
+    "test:watch": "jest --watch",
+    "test:coverage": "jest --coverage",
+    "lint": "eslint src/**/*.ts",
+    "lint:fix": "eslint src/**/*.ts --fix",
+    "format": "prettier --write \"src/**/*.ts\"",
+    "clean": "rimraf dist logs",
+    "prepare": "npm run build"
+  },
+  "keywords": [
+    "terminal",
+    "agent",
+    "llm",
+    "lm-studio",
+    "web-scraping",
+    "code-generation",
+    "ai"
+  ],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "dependencies": {
+    "axios": "^1.13.2",
+    "chalk": "^5.6.2",
+    "cheerio": "^1.1.2",
+    "dotenv": "^17.2.3",
+    "inquirer": "^13.0.1",
+    "ora": "^9.0.0",
+    "puppeteer": "^24.31.0",
+    "puppeteer-extra": "^3.3.6",
+    "puppeteer-extra-plugin-stealth": "^2.11.2",
+    "readline-sync": "^1.4.10",
+    "uuid": "^13.0.0",
+    "winston": "^3.18.3"
+  },
+  "devDependencies": {
+    "@types/cheerio": "^0.22.35",
+    "@types/inquirer": "^9.0.9",
+    "@types/jest": "^30.0.0",
+    "@types/node": "^24.10.1",
+    "@types/uuid": "^10.0.0",
+    "@typescript-eslint/eslint-plugin": "^8.48.1",
+    "@typescript-eslint/parser": "^8.48.1",
+    "eslint": "^9.39.1",
+    "jest": "^30.2.0",
+    "prettier": "^3.7.3",
+    "rimraf": "^6.1.2",
+    "ts-jest": "^29.4.6",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.9.3"
+  }
+}
