@@ -27,6 +27,22 @@ import { ProgressTracker, progressTracker } from './progress.js';
 export { ProgressTracker, progressTracker };
 export type { StepStatus, ProgressStep, ProgressConfig, ProgressSummary } from './progress.js';
 
+// Result formatting (Phase 8)
+import { 
+  ResultFormatter, 
+  formatAsList, 
+  formatAsTable, 
+  formatAsCards, 
+  formatAsMarkdown 
+} from './formatter.js';
+export { ResultFormatter, formatAsList, formatAsTable, formatAsCards, formatAsMarkdown };
+export type { 
+  FormattedItem, 
+  FormattedResult, 
+  TableColumn, 
+  FormatterOptions 
+} from './formatter.js';
+
 /**
  * Initialize all CLI components
  */
