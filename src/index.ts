@@ -3,11 +3,11 @@
  * Main Entry Point
  */
 
-import { Terminal, terminal, theme } from './cli/terminal';
-import { LMStudioClient, lmStudioClient } from './llm/client';
-import { logger } from './utils/logger';
-import { config, llmConfig, paths } from './utils/config';
-import { ChatMessage } from './types';
+import { Terminal, terminal, theme, commandRegistry, display, progressTracker } from './cli/index.js';
+import { LMStudioClient, lmStudioClient } from './llm/client.js';
+import { logger } from './utils/logger.js';
+import { config, llmConfig, paths } from './utils/config.js';
+import { ChatMessage } from './types/index.js';
 
 /**
  * Main application class

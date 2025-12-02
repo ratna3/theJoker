@@ -1,6 +1,6 @@
 /**
  * The Joker - Agentic Terminal
- * Interactive Terminal Interface
+ * Interactive Terminal Interface with Enhanced UX
  */
 
 import chalk from 'chalk';
@@ -8,13 +8,13 @@ import ora, { Ora } from 'ora';
 import inquirer from 'inquirer';
 import { EventEmitter } from 'events';
 import readline from 'readline';
-import { logger } from '../utils/logger';
-import { terminalConfig } from '../utils/config';
+import { logger } from '../utils/logger.js';
+import { terminalConfig } from '../utils/config.js';
 
 /**
- * Terminal color theme
+ * Terminal color theme - exported for use by other modules
  */
-const theme = {
+export const theme = {
   primary: chalk.hex('#00FF00'),      // Joker green
   secondary: chalk.hex('#800080'),    // Purple
   accent: chalk.hex('#FFD700'),       // Gold
@@ -467,8 +467,7 @@ export class Terminal extends EventEmitter {
   }
 }
 
-// Export theme for external use
-export { theme };
+// Export theme for external use - theme is already exported above
 
 // Default terminal instance
 export const terminal = new Terminal();
