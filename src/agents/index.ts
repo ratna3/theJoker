@@ -3,6 +3,21 @@
  * Agents Module Index
  */
 
+// Core Agent exports
+export {
+  JokerAgent,
+  getAgent,
+  createAgent,
+  AgentState,
+  RecoveryStrategy,
+  AgentThought,
+  AgentObservation,
+  CorrectionContext,
+  AgentRunResult,
+  AgentConfig,
+  AgentEvents,
+} from './agent';
+
 // Planner exports
 export {
   Planner,

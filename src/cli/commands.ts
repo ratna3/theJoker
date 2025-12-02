@@ -22,7 +22,7 @@ export interface Command {
 /**
  * Command categories for organization
  */
-export type CommandCategory = 'general' | 'navigation' | 'tools' | 'config' | 'debug';
+export type CommandCategory = 'general' | 'navigation' | 'tools' | 'config' | 'debug' | 'agent';
 
 /**
  * Command execution context
