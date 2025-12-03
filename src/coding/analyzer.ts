@@ -23,7 +23,7 @@ export interface Usage {
   symbolName: string;
 }
 
-export interface ComplexityMetrics {
+export interface AnalysisComplexityMetrics {
   totalFiles: number;
   totalLines: number;
   averageComplexity: number;
@@ -31,7 +31,7 @@ export interface ComplexityMetrics {
   complexFiles: Array<{ filePath: string; complexity: number }>;
 }
 
-export interface CodeSmell {
+export interface AnalysisCodeSmell {
   type: string;
   severity: 'low' | 'medium' | 'high';
   filePath: string;
@@ -65,8 +65,8 @@ export interface Suggestion {
 }
 
 export interface AnalysisResult {
-  complexity: ComplexityMetrics;
-  codeSmells: CodeSmell[];
+  complexity: AnalysisComplexityMetrics;
+  codeSmells: AnalysisCodeSmell[];
   duplicates: Duplicate[];
   unused: UnusedCode[];
   suggestions: Suggestion[];
@@ -93,7 +93,7 @@ export interface CodeSummary {
   mainConcepts: string[];
 }
 
-export interface SearchResult {
+export interface AnalyzerSearchResult {
   filePath: string;
   line: number;
   column: number;
@@ -381,8 +381,8 @@ export class CodeAnalyzer extends EventEmitter {
   /**
    * Semantic search across the codebase
    */
-  async search(query: string, projectIndex: ProjectIndex): Promise<SearchResult[]> {
-    const results: SearchResult[] = [];
+  async search(query: string, projectIndex: ProjectIndex): Promise<AnalyzerSearchResult[]> {
+    const results: AnalyzerSearchResult[] = [];
     const queryLower = query.toLowerCase();
     const queryWords = queryLower.split(/\s+/).filter(w => w.length > 2);
 
@@ -449,7 +449,7 @@ export class CodeAnalyzer extends EventEmitter {
   // Private Helper Methods
   // ============================================================================
 
-  private async calculateComplexity(projectIndex: ProjectIndex): Promise<ComplexityMetrics> {
+  private async calculateComplexity(projectIndex: ProjectIndex): Promise<AnalysisComplexityMetrics> {
     let totalLines = 0;
     let totalComplexity = 0;
     const complexFiles: Array<{ filePath: string; complexity: number }> = [];
@@ -498,8 +498,8 @@ export class CodeAnalyzer extends EventEmitter {
     return complexity;
   }
 
-  private async detectCodeSmells(projectIndex: ProjectIndex): Promise<CodeSmell[]> {
-    const smells: CodeSmell[] = [];
+  private async detectCodeSmells(projectIndex: ProjectIndex): Promise<AnalysisCodeSmell[]> {
+    const smells: AnalysisCodeSmell[] = [];
     const thresholds = this.options.smellThresholds;
     const maxParams = thresholds.maxParameters ?? 5;
     const maxComplexityThreshold = thresholds.maxComplexity ?? 10;
@@ -685,9 +685,9 @@ export class CodeAnalyzer extends EventEmitter {
   }
 
   private generateSuggestions(
-    smells: CodeSmell[],
+    smells: AnalysisCodeSmell[],
     unused: UnusedCode[],
-    complexity: ComplexityMetrics
+    complexity: AnalysisComplexityMetrics
   ): Suggestion[] {
     const suggestions: Suggestion[] = [];
 
@@ -1135,7 +1135,7 @@ export class SemanticCodeSearch {
   /**
    * Perform a semantic search across the project
    */
-  async search(query: string, projectIndex: ProjectIndex): Promise<SearchResult[]> {
+  async search(query: string, projectIndex: ProjectIndex): Promise<AnalyzerSearchResult[]> {
     return this.analyzer.search(query, projectIndex);
   }
 
@@ -1145,7 +1145,7 @@ export class SemanticCodeSearch {
   async findSimilar(
     code: string, 
     projectIndex: ProjectIndex
-  ): Promise<SearchResult[]> {
+  ): Promise<AnalyzerSearchResult[]> {
     // Extract key identifiers from the code
     const identifiers = this.extractIdentifiers(code);
     
@@ -1154,7 +1154,7 @@ export class SemanticCodeSearch {
     }
 
     // Search for each identifier
-    const allResults: SearchResult[] = [];
+    const allResults: AnalyzerSearchResult[] = [];
     for (const id of identifiers.slice(0, 3)) {
       const results = await this.analyzer.search(id, projectIndex);
       allResults.push(...results);

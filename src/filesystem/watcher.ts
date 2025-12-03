@@ -4,12 +4,14 @@
  * 
  * Real-time file system monitoring with debouncing,
  * intelligent filtering, and change batching.
+ * Uses chokidar for cross-platform file watching.
  */
 
 import { EventEmitter } from 'events';
 import * as fs from 'fs/promises';
 import * as path from 'path';
-import { watch, FSWatcher } from 'fs';
+import chokidar, { FSWatcher as ChokidarWatcher } from 'chokidar';
+import type { Stats } from 'fs';
 import { logger } from '../utils/logger';
 
 // ============================================
@@ -89,36 +91,37 @@ export interface WatcherState {
 
 /**
  * Advanced file system watcher with batching and debouncing
+ * Uses chokidar for robust cross-platform file watching
  */
 export class FileSystemWatcher extends EventEmitter {
   private options: Required<WatcherOptions>;
-  private watchers: Map<string, FSWatcher> = new Map();
+  private watcher: ChokidarWatcher | null = null;
   private state: WatcherState;
   private pendingChanges: FileChangeEvent[] = [];
   private debounceTimer: NodeJS.Timeout | null = null;
   private isShuttingDown = false;
 
   private static readonly DEFAULT_IGNORE_PATTERNS = [
-    'node_modules',
-    '.git',
-    'dist',
-    'build',
-    'out',
-    '.next',
-    '.nuxt',
-    '.cache',
-    'coverage',
-    '__pycache__',
-    '.pytest_cache',
-    'vendor',
-    '.DS_Store',
-    'Thumbs.db',
-    '*.log',
-    '*.lock',
-    '*.tmp',
-    '*.temp',
-    '*.swp',
-    '*~'
+    '**/node_modules/**',
+    '**/.git/**',
+    '**/dist/**',
+    '**/build/**',
+    '**/out/**',
+    '**/.next/**',
+    '**/.nuxt/**',
+    '**/.cache/**',
+    '**/coverage/**',
+    '**/__pycache__/**',
+    '**/.pytest_cache/**',
+    '**/vendor/**',
+    '**/.DS_Store',
+    '**/Thumbs.db',
+    '**/*.log',
+    '**/*.lock',
+    '**/*.tmp',
+    '**/*.temp',
+    '**/*.swp',
+    '**/*~'
   ];
 
   constructor(options: WatcherOptions = {}) {
@@ -177,9 +180,105 @@ export class FileSystemWatcher extends EventEmitter {
     this.isShuttingDown = false;
 
     logger.info('Starting file system watcher', { rootPath: resolvedPath });
-    this.emit('ready', { rootPath: resolvedPath });
 
-    await this.setupWatchers(resolvedPath, 0);
+    // Set up chokidar watcher
+    this.watcher = chokidar.watch(resolvedPath, {
+      ignored: this.options.ignorePatterns,
+      persistent: true,
+      ignoreInitial: this.options.ignoreInitial,
+      followSymlinks: this.options.followSymlinks,
+      depth: this.options.depth === Infinity ? undefined : this.options.depth,
+      usePolling: this.options.usePolling,
+      interval: this.options.pollingInterval,
+      awaitWriteFinish: {
+        stabilityThreshold: 100,
+        pollInterval: 50
+      }
+    });
+
+    // Set up event handlers
+    this.setupChokidarEvents();
+
+    // Emit ready event
+    this.emit('ready', { rootPath: resolvedPath });
+  }
+
+  /**
+   * Set up chokidar event handlers
+   */
+  private setupChokidarEvents(): void {
+    if (!this.watcher) return;
+
+    this.watcher
+      .on('add', (filePath: string, stats?: Stats) => {
+        this.handleChokidarEvent('add', filePath, stats);
+      })
+      .on('change', (filePath: string, stats?: Stats) => {
+        this.handleChokidarEvent('change', filePath, stats);
+      })
+      .on('unlink', (filePath: string) => {
+        this.handleChokidarEvent('unlink', filePath);
+      })
+      .on('addDir', (filePath: string, stats?: Stats) => {
+        this.handleChokidarEvent('addDir', filePath, stats);
+      })
+      .on('unlinkDir', (filePath: string) => {
+        this.handleChokidarEvent('unlinkDir', filePath);
+      })
+      .on('error', (error: unknown) => {
+        const err = error instanceof Error ? error : new Error(String(error));
+        logger.warn('Watcher error', { error: err });
+        this.emit('error', { error: err });
+      })
+      .on('ready', () => {
+        // Update watched paths from chokidar
+        const watched = this.watcher?.getWatched() || {};
+        for (const dir of Object.keys(watched)) {
+          this.state.watchedPaths.add(dir);
+          for (const file of watched[dir]) {
+            this.state.watchedPaths.add(path.join(dir, file));
+          }
+        }
+        logger.info('Watcher ready', { 
+          rootPath: this.state.rootPath,
+          watchedCount: this.state.watchedPaths.size 
+        });
+      });
+  }
+
+  /**
+   * Handle chokidar events
+   */
+  private handleChokidarEvent(
+    type: ChangeType, 
+    filePath: string, 
+    stats?: Stats
+  ): void {
+    if (this.isShuttingDown) return;
+
+    // Check file extensions filter
+    if (this.options.watchExtensions.length > 0) {
+      const ext = path.extname(filePath);
+      if (!this.options.watchExtensions.includes(ext)) {
+        return;
+      }
+    }
+
+    const relativePath = path.relative(this.state.rootPath, filePath);
+
+    const event: FileChangeEvent = {
+      type,
+      path: filePath,
+      relativePath,
+      timestamp: new Date(),
+      stats: stats ? {
+        size: stats.size,
+        mtime: stats.mtime,
+        isDirectory: stats.isDirectory()
+      } : undefined
+    };
+
+    this.queueChange(event);
   }
 
   /**
@@ -201,16 +300,12 @@ export class FileSystemWatcher extends EventEmitter {
       this.flushChanges();
     }
 
-    // Close all watchers
-    for (const [watchPath, watcher] of this.watchers) {
-      try {
-        watcher.close();
-      } catch (error) {
-        logger.warn('Error closing watcher', { path: watchPath, error });
-      }
+    // Close chokidar watcher
+    if (this.watcher) {
+      await this.watcher.close();
+      this.watcher = null;
     }
 
-    this.watchers.clear();
     this.state.isWatching = false;
     this.state.watchedPaths.clear();
     this.state.fileHashes.clear();
@@ -223,7 +318,11 @@ export class FileSystemWatcher extends EventEmitter {
    * Get current watcher state
    */
   getState(): WatcherState {
-    return { ...this.state };
+    return { 
+      ...this.state,
+      watchedPaths: new Set(this.state.watchedPaths),
+      fileHashes: new Map(this.state.fileHashes)
+    };
   }
 
   /**
@@ -238,30 +337,24 @@ export class FileSystemWatcher extends EventEmitter {
    * Add a path to watch
    */
   async addPath(filePath: string): Promise<void> {
-    if (!this.state.isWatching) {
+    if (!this.state.isWatching || !this.watcher) {
       throw new Error('Watcher is not running. Call watch() first.');
     }
 
     const resolved = path.resolve(filePath);
-    const stats = await fs.stat(resolved);
-
-    if (stats.isDirectory()) {
-      await this.setupWatchers(resolved, 0);
-    }
+    this.watcher.add(resolved);
+    this.state.watchedPaths.add(resolved);
   }
 
   /**
    * Remove a path from watching
    */
-  removePath(filePath: string): void {
-    const resolved = path.resolve(filePath);
-    const watcher = this.watchers.get(resolved);
+  async unwatch(filePath: string): Promise<void> {
+    if (!this.watcher) return;
 
-    if (watcher) {
-      watcher.close();
-      this.watchers.delete(resolved);
-      this.state.watchedPaths.delete(resolved);
-    }
+    const resolved = path.resolve(filePath);
+    await this.watcher.unwatch(resolved);
+    this.state.watchedPaths.delete(resolved);
   }
 
   /**
@@ -271,134 +364,17 @@ export class FileSystemWatcher extends EventEmitter {
     return this.state.watchedPaths.size;
   }
 
+  /**
+   * Get all watched directories and files
+   */
+  getWatchedPaths(): Record<string, string[]> {
+    if (!this.watcher) return {};
+    return this.watcher.getWatched();
+  }
+
   // ============================================
   // Private Methods
   // ============================================
-
-  /**
-   * Set up watchers recursively
-   */
-  private async setupWatchers(dirPath: string, depth: number): Promise<void> {
-    if (depth > this.options.depth) return;
-    if (this.shouldIgnore(dirPath)) return;
-    if (this.isShuttingDown) return;
-
-    try {
-      // Watch this directory
-      await this.watchDirectory(dirPath);
-
-      // Recursively watch subdirectories
-      if (this.options.recursive) {
-        const entries = await fs.readdir(dirPath, { withFileTypes: true });
-
-        for (const entry of entries) {
-          if (this.isShuttingDown) return;
-          if (this.shouldIgnore(entry.name)) continue;
-
-          if (entry.isDirectory()) {
-            const subPath = path.join(dirPath, entry.name);
-            await this.setupWatchers(subPath, depth + 1);
-          }
-        }
-      }
-    } catch (error) {
-      logger.warn('Error setting up watcher', { dirPath, error });
-    }
-  }
-
-  /**
-   * Watch a single directory
-   */
-  private async watchDirectory(dirPath: string): Promise<void> {
-    if (this.watchers.has(dirPath)) return;
-
-    try {
-      const watcher = watch(
-        dirPath,
-        { persistent: true, recursive: false },
-        (eventType, filename) => {
-          if (filename && !this.isShuttingDown) {
-            this.handleFileEvent(eventType, path.join(dirPath, filename));
-          }
-        }
-      );
-
-      watcher.on('error', (error) => {
-        logger.warn('Watcher error', { dirPath, error });
-        this.emit('error', { path: dirPath, error });
-      });
-
-      this.watchers.set(dirPath, watcher);
-      this.state.watchedPaths.add(dirPath);
-    } catch (error) {
-      logger.warn('Failed to watch directory', { dirPath, error });
-    }
-  }
-
-  /**
-   * Handle a file system event
-   */
-  private async handleFileEvent(eventType: string, filePath: string): Promise<void> {
-    if (this.shouldIgnore(filePath)) return;
-
-    const relativePath = path.relative(this.state.rootPath, filePath);
-    
-    // Check file extensions filter
-    if (this.options.watchExtensions.length > 0) {
-      const ext = path.extname(filePath);
-      if (!this.options.watchExtensions.includes(ext)) {
-        return;
-      }
-    }
-
-    try {
-      let changeType: ChangeType;
-      let stats: FileChangeEvent['stats'];
-
-      try {
-        const fileStats = await fs.stat(filePath);
-        stats = {
-          size: fileStats.size,
-          mtime: fileStats.mtime,
-          isDirectory: fileStats.isDirectory()
-        };
-
-        if (eventType === 'rename') {
-          // File was added or directory was added
-          changeType = fileStats.isDirectory() ? 'addDir' : 'add';
-        } else {
-          changeType = 'change';
-        }
-
-        // Set up watcher for new directories
-        if (changeType === 'addDir' && this.options.recursive) {
-          await this.setupWatchers(filePath, this.getDepth(filePath));
-        }
-      } catch {
-        // File was deleted
-        changeType = filePath.endsWith(path.sep) ? 'unlinkDir' : 'unlink';
-        
-        // Remove watcher for deleted directories
-        if (this.watchers.has(filePath)) {
-          this.watchers.get(filePath)?.close();
-          this.watchers.delete(filePath);
-          this.state.watchedPaths.delete(filePath);
-        }
-      }
-
-      const event: FileChangeEvent = {
-        type: changeType,
-        path: filePath,
-        relativePath,
-        timestamp: new Date(),
-        stats
-      };
-
-      this.queueChange(event);
-    } catch (error) {
-      logger.debug('Error handling file event', { filePath, eventType, error });
-    }
-  }
 
   /**
    * Queue a change for batched emission
@@ -468,36 +444,29 @@ export class FileSystemWatcher extends EventEmitter {
   /**
    * Check if a path should be ignored
    */
-  private shouldIgnore(filePath: string): boolean {
+  shouldIgnore(filePath: string): boolean {
     const basename = path.basename(filePath);
 
     for (const pattern of this.options.ignorePatterns) {
-      // Glob pattern with *
+      // Simple glob pattern matching
       if (pattern.includes('*')) {
-        const regex = new RegExp(
-          '^' + pattern.replace(/\./g, '\\.').replace(/\*/g, '.*') + '$'
-        );
-        if (regex.test(basename)) {
+        const regexPattern = pattern
+          .replace(/\*\*/g, '{{GLOBSTAR}}')
+          .replace(/\*/g, '[^/]*')
+          .replace(/{{GLOBSTAR}}/g, '.*')
+          .replace(/\./g, '\\.');
+        const regex = new RegExp(regexPattern);
+        if (regex.test(filePath) || regex.test(basename)) {
           return true;
         }
       } else {
-        // Exact match
-        if (basename === pattern) {
+        if (basename === pattern || filePath.includes(pattern)) {
           return true;
         }
       }
     }
 
     return false;
-  }
-
-  /**
-   * Calculate depth of a path relative to root
-   */
-  private getDepth(filePath: string): number {
-    const relative = path.relative(this.state.rootPath, filePath);
-    if (!relative) return 0;
-    return relative.split(path.sep).length;
   }
 }
 

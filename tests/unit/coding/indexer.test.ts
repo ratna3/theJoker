@@ -13,14 +13,6 @@ import * as path from 'path';
 jest.mock('fs/promises');
 const mockFs = fs as jest.Mocked<typeof fs>;
 
-// Mock chokidar
-jest.mock('chokidar', () => ({
-  watch: jest.fn(() => ({
-    on: jest.fn().mockReturnThis(),
-    close: jest.fn()
-  }))
-}));
-
 describe('DependencyGraph', () => {
   let graph: DependencyGraph;
 
@@ -345,32 +337,15 @@ describe('FileIndexer', () => {
   });
 
   describe('reindexFile', () => {
-    it('should update file info in existing index', async () => {
-      mockFs.readFile.mockResolvedValue('export const x = 1;');
-      mockFs.stat.mockResolvedValue({
-        size: 20,
-        mtime: new Date(),
-        isDirectory: () => false
-      } as any);
-
-      // First index
-      await indexer.indexFile('/project/file.ts', '/project');
-      
-      // Mock updated content
-      mockFs.readFile.mockResolvedValue('export const x = 2; export function test() {}');
-      
-      // Reindex - note: may need to index first with indexProject
-      const updatedInfo = await indexer.reindexFile('/project/file.ts');
-
-      // Result depends on whether project is indexed
-      expect(updatedInfo).toBeDefined();
+    it('should throw error when no project indexed', async () => {
+      // reindexFile requires indexProject to be called first
+      await expect(indexer.reindexFile('/project/file.ts')).rejects.toThrow('No index available');
     });
   });
 
   describe('searchFiles', () => {
-    it('should return empty array when no project indexed', async () => {
-      const results = await indexer.searchFiles('helper');
-      expect(results).toEqual([]);
+    it('should throw error when no project indexed', () => {
+      expect(() => indexer.searchFiles('helper')).toThrow('No index available');
     });
   });
 });

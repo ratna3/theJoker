@@ -12,10 +12,10 @@ import {
   type AnalysisResult,
   type CodeSummary,
   type Suggestion,
-  type SearchResult,
-  type CodeSmell,
+  type AnalyzerSearchResult,
+  type AnalysisCodeSmell,
   type UnusedCode,
-  type ComplexityMetrics
+  type AnalysisComplexityMetrics
 } from '../../../src/coding/analyzer';
 import type { ProjectIndex, IndexedFileInfo, FunctionInfo, ClassInfo, ImportInfo, ExportInfo, VariableInfo } from '../../../src/coding/indexer';
 
