@@ -1,12 +1,28 @@
 # 🃏 The Joker - Agentic Terminal
 
-[![TypeScript](https://img.shields.io/badge/TypeScript-5.9-blue.svg)](https://www.typescriptlang.org/)
-[![Node.js](https://img.shields.io/badge/Node.js-18+-green.svg)](https://nodejs.org/)
-[![LM Studio](https://img.shields.io/badge/LM%20Studio-Compatible-purple.svg)](https://lmstudio.ai/)
-[![Tests](https://img.shields.io/badge/Tests-379%20Passing-brightgreen.svg)]()
-[![License](https://img.shields.io/badge/License-ISC-yellow.svg)](LICENSE)
+<div align="center">
 
-An autonomous AI-powered terminal that understands natural language queries, scrapes the web intelligently, processes data, and returns structured results with proper links. Powered by **LM Studio's `qwen2.5-coder-14b-instruct-uncensored`** model.
+[![TypeScript](https://img.shields.io/badge/TypeScript-5.9-3178C6?style=for-the-badge&logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
+[![Node.js](https://img.shields.io/badge/Node.js-20+-339933?style=for-the-badge&logo=node.js&logoColor=white)](https://nodejs.org/)
+[![LM Studio](https://img.shields.io/badge/LM%20Studio-Compatible-8B5CF6?style=for-the-badge&logo=data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCI+PC9zdmc+)](https://lmstudio.ai/)
+[![Tests](https://img.shields.io/badge/Tests-966%20Passing-22C55E?style=for-the-badge&logo=jest&logoColor=white)]()
+[![Coverage](https://img.shields.io/badge/Coverage-80%25+-10B981?style=for-the-badge&logo=codecov&logoColor=white)]()
+[![License](https://img.shields.io/badge/License-TJCL-F59E0B?style=for-the-badge)](LICENSE)
+
+<br />
+
+[![GitHub](https://img.shields.io/badge/GitHub-ratna3-181717?style=flat-square&logo=github)](https://github.com/ratna3)
+[![Twitter](https://img.shields.io/badge/Twitter-@RatnaKirti1-1DA1F2?style=flat-square&logo=twitter)](https://x.com/RatnaKirti1)
+[![Discord](https://img.shields.io/badge/Discord-Join%20Server-5865F2?style=flat-square&logo=discord)](https://discord.gg/VRPSujmH)
+[![Email](https://img.shields.io/badge/Email-Contact-D14836?style=flat-square&logo=gmail)](mailto:ratnakirtiscr@gmail.com)
+
+<br />
+
+**An autonomous AI-powered terminal that understands natural language queries, scrapes the web intelligently, generates complete projects, and deploys applications.**
+
+*Powered by LM Studio's `qwen2.5-coder-14b-instruct-uncensored` model*
+
+</div>
 
 ---
 
@@ -29,14 +45,16 @@ An autonomous AI-powered terminal that understands natural language queries, scr
 
 ## ✨ Features
 
-- **🧠 Natural Language Understanding** - Understands complex queries and extracts intent, entities, and parameters
-- **🔍 Intelligent Web Scraping** - Puppeteer-based scraping with anti-detection measures and stealth mode
-- **🤖 Autonomous Agent Loop** - Think → Plan → Act → Observe cycle with self-correction
-- **💾 Persistent Memory** - Session management and learning from past interactions
-- **🎨 Beautiful Terminal UI** - Rich formatting, progress indicators, and colorful output
-- **🔄 Error Recovery** - Retry logic, circuit breakers, and graceful degradation
-- **⚡ Performance Optimized** - Caching, request deduplication, and browser pooling
-- **🧪 Well Tested** - 379+ unit tests with comprehensive coverage
+| Category | Features |
+|----------|----------|
+| **🧠 AI Agent** | Natural language understanding, autonomous task execution, self-correction |
+| **🌐 Web Scraping** | Puppeteer-based scraping with stealth mode and anti-detection |
+| **📁 Project Generation** | Create complete projects from natural language descriptions |
+| **🚀 Deployment** | Docker, Kubernetes, and CI/CD pipeline automation |
+| **💾 Memory** | Persistent context across sessions with intelligent summarization |
+| **🎨 CLI** | Beautiful terminal UI with rich formatting and progress indicators |
+| **🔄 Error Handling** | Retry logic, circuit breakers, and graceful degradation |
+| **🧪 Testing** | 966 tests with 80%+ coverage across 22 test suites |
 
 ---
 
@@ -407,56 +425,120 @@ npm run test:watch
 
 ### Test Coverage
 
-The project maintains high test coverage across all modules:
+The project maintains comprehensive test coverage:
 
-| Module | Tests | Coverage |
-|--------|-------|----------|
-| LLM Parser | 61 | High |
-| Cache Utilities | 50 | High |
-| Agent Memory | 45 | High |
-| Executor | 32 | High |
-| CLI Display | 41 | High |
-| Validators | 45 | High |
-| Error Handling | 58 | High |
-| **Total** | **379+** | **>80%** |
+| Test Suite | Tests | Status |
+|------------|-------|--------|
+| Agent System | 120+ | ✅ Passing |
+| LLM Integration | 80+ | ✅ Passing |
+| Web Scraper | 90+ | ✅ Passing |
+| Tools | 100+ | ✅ Passing |
+| CLI | 80+ | ✅ Passing |
+| Error Handling | 70+ | ✅ Passing |
+| Project Management | 100+ | ✅ Passing |
+| Utilities | 150+ | ✅ Passing |
+| **Total** | **966** | **✅ All Passing** |
 
 ---
 
 ## 🤝 Contributing
 
-Contributions are welcome! Please follow these steps:
+We welcome contributions! Please read our [Contributing Guide](CONTRIBUTING.md) first.
 
-1. Fork the repository
-2. Create a feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit your changes (`git commit -m 'Add amazing feature'`)
-4. Push to the branch (`git push origin feature/amazing-feature`)
-5. Open a Pull Request
+### Quick Contributing Steps
 
-### Coding Standards
+1. Read the [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines
+2. Check [open issues](https://github.com/ratna3/theJoker/issues)
+3. Comment on an issue to get assigned
+4. Make your changes following our coding standards
+5. Submit a Pull Request
 
-- Use TypeScript strict mode
-- Follow ESLint configuration
-- Write tests for new features
-- Document public APIs
-- Keep functions small and focused
+> ⚠️ **Important:** This project uses the [TJCL License](LICENSE). By contributing, you agree to the license terms.
+
+---
+
+## 🔒 Security
+
+Found a security vulnerability? Please read our [Security Policy](SECURITY.md) and report responsibly.
+
+**DO NOT** create public issues for security vulnerabilities.
+
+📧 Report to: [ratnakirtiscr@gmail.com](mailto:ratnakirtiscr@gmail.com)
+
+---
+
+## 📖 Documentation
+
+For comprehensive documentation, see:
+
+- **[DOCUMENTATION.md](DOCUMENTATION.md)** - Full API reference and guides
+- **[CONTRIBUTING.md](CONTRIBUTING.md)** - Contribution guidelines
+- **[SECURITY.md](SECURITY.md)** - Security policy
+- **[LICENSE](LICENSE)** - License terms
 
 ---
 
 ## 📄 License
 
-This project is licensed under the ISC License - see the [LICENSE](LICENSE) file for details.
+This project is licensed under **The Joker Contribution License (TJCL) v1.0**.
+
+| Permission | Status |
+|------------|--------|
+| View source code | ✅ Allowed |
+| Contribute (Pull Requests) | ✅ Allowed |
+| Personal non-commercial use | ✅ Allowed |
+| Clone/Fork repository | ❌ Not Allowed |
+| Redistribute | ❌ Not Allowed |
+| Commercial use | ❌ Not Allowed |
+
+See the [LICENSE](LICENSE) file for details.
 
 ---
 
 ## 🙏 Acknowledgments
 
+### Open Source Libraries
+
+This project is built with these amazing open source libraries:
+
+| Library | Purpose | License |
+|---------|---------|---------|
+| [Puppeteer](https://pptr.dev/) | Browser automation | Apache-2.0 |
+| [puppeteer-extra](https://github.com/berstend/puppeteer-extra) | Plugin system | MIT |
+| [puppeteer-extra-plugin-stealth](https://github.com/berstend/puppeteer-extra) | Stealth mode | MIT |
+| [Axios](https://axios-http.com/) | HTTP client | MIT |
+| [Cheerio](https://cheerio.js.org/) | HTML parsing | MIT |
+| [Chalk](https://github.com/chalk/chalk) | Terminal styling | MIT |
+| [Winston](https://github.com/winstonjs/winston) | Logging | MIT |
+| [Jest](https://jestjs.io/) | Testing | MIT |
+| [TypeScript](https://www.typescriptlang.org/) | Type safety | Apache-2.0 |
+
+### Special Thanks
+
 - [LM Studio](https://lmstudio.ai/) for local LLM inference
-- [Puppeteer](https://pptr.dev/) for web scraping
-- [chalk](https://github.com/chalk/chalk) for terminal styling
-- [Winston](https://github.com/winstonjs/winston) for logging
+- The open source community for their amazing tools and libraries
 
 ---
 
-<p align="center">
-  Made with ❤️ by The Joker Team
-</p>
+## 👤 Author
+
+<div align="center">
+
+**Ratna Kirti**
+
+[![GitHub](https://img.shields.io/badge/GitHub-ratna3-181717?style=for-the-badge&logo=github)](https://github.com/ratna3)
+[![Twitter](https://img.shields.io/badge/Twitter-@RatnaKirti1-1DA1F2?style=for-the-badge&logo=twitter)](https://x.com/RatnaKirti1)
+[![Discord](https://img.shields.io/badge/Discord-Join%20Server-5865F2?style=for-the-badge&logo=discord)](https://discord.gg/VRPSujmH)
+[![Email](https://img.shields.io/badge/Email-Contact-D14836?style=for-the-badge&logo=gmail)](mailto:ratnakirtiscr@gmail.com)
+
+</div>
+
+---
+
+<div align="center">
+
+**Made with ❤️ by Ratna Kirti**
+
+**🃏 The Joker - Agentic Terminal v1.0.0**
+
+</div>
