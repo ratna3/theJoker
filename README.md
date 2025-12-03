@@ -54,7 +54,7 @@ npm install
 cp .env.example .env
 
 # Start LM Studio with qwen2.5-coder-14b-instruct-uncensored
-# Make sure it's running at http://192.168.56.1:1234
+# Make sure it's running at http://xxx.xxx.xx.x:xxxx
 
 # Build and run
 npm run build
@@ -116,7 +116,7 @@ Create a `.env` file in the project root:
 
 ```env
 # LM Studio Configuration
-LM_STUDIO_ENDPOINT=http://192.168.56.1:1234
+LM_STUDIO_ENDPOINT=http://xxx.xxx.xx.x:xxxx
 LM_STUDIO_MODEL=qwen2.5-coder-14b-instruct-uncensored
 
 # LLM Settings
@@ -142,7 +142,7 @@ Additional settings can be configured in `config/default.json`:
 ```json
 {
   "llm": {
-    "endpoint": "http://192.168.56.1:1234",
+    "endpoint": "http://xxx.xxx.xx.x:xxxx",
     "model": "qwen2.5-coder-14b-instruct-uncensored",
     "temperature": 0.7,
     "maxTokens": 4096
