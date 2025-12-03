@@ -11,3 +11,17 @@ export {
   type FileTemplate,
   type PackageJsonSpec
 } from './scaffolder';
+
+export {
+  PackageManager,
+  DependencyDetector,
+  VersionResolver,
+  packageManager,
+  dependencyDetector,
+  versionResolver,
+  type InstalledPackage,
+  type PackageJson,
+  type NpmPackageInfo,
+  type DependencyAnalysis,
+  type PackagerEvents
+} from './packager';
