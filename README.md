@@ -99,7 +99,7 @@ npm start
 5. **Start LM Studio**
    - Open LM Studio
    - Load `qwen2.5-coder-14b-instruct-uncensored` (or similar model)
-   - Start the local server at `http://192.168.56.1:1234`
+   - Start the local server at `http://192.xxx.xx.x:xxxx`
 
 6. **Run The Joker**
    ```bash
