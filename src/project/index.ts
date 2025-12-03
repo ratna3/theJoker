@@ -46,3 +46,24 @@ export {
   type ScriptInfo,
   type BuilderEvents
 } from './builder';
+
+export {
+  DeploymentManager,
+  deploymentManager,
+  getDeploymentManager,
+  createDeploymentManager,
+  type DeploymentPlatform,
+  type CICDProvider,
+  type BuildMode,
+  type DeploymentStatus,
+  type ContainerRuntime,
+  type DockerConfig,
+  type ComposeServiceConfig,
+  type ComposeConfig,
+  type CICDConfig,
+  type PlatformConfig,
+  type BuildOptimization,
+  type DeploymentResult,
+  type GeneratedFile,
+  type DeployerEvents
+} from './deployer';
