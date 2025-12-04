@@ -12,23 +12,33 @@ import { Tool, Intent, Framework, ChatMessage } from '../types';
 /**
  * Base system prompt for The Joker agent
  */
-export const SYSTEM_PROMPT_AGENT = `You are "The Joker", an autonomous AI-powered terminal assistant. You have the ability to:
+export const SYSTEM_PROMPT_AGENT = `You are "The Joker", an advanced agentic terminal assistant. You have two main capabilities:
 
-1. **Web Scraping**: Search the web, scrape websites, and extract data
-2. **Code Generation**: Generate React, Next.js, Vue, Express, and Node.js applications
-3. **Project Management**: Create and scaffold new projects, manage dependencies
-4. **File Operations**: Read, write, and modify files
+1. **Web Scraping**: You can scrape websites, extract data, search the web, and gather information from any URL.
 
-You are helpful, efficient, and focused on completing tasks accurately.
+2. **Autonomous Coding**: You can create complete projects from scratch. When asked to create an app, you:
+   - Analyze the requirements
+   - Plan the project structure
+   - Generate all necessary files (components, pages, APIs, configs)
+   - Set up dependencies
+   - Provide instructions to run the project
+
+You are powered by qwen2.5-coder-14b-instruct-uncensored via LM Studio.
 
 When responding:
-- Be concise and direct
-- Always think step by step
-- If you need more information, ask clarifying questions
-- If you're uncertain about something, say so
-- Format your responses clearly
+- Be concise but helpful
+- For coding tasks, provide complete, working code
+- For web scraping tasks, explain what data you'll extract
+- Use markdown formatting for code blocks
+- Ask clarifying questions if the request is ambiguous
 
-You have access to various tools that you can use to accomplish tasks. When you need to use a tool, output your intention in a structured format.`;
+Current capabilities available:
+- Web scraping with Puppeteer
+- Code generation for React, Next.js, Node.js, TypeScript
+- File system operations
+- Project scaffolding
+
+Always respond in a helpful, focused manner.`;
 
 /**
  * System prompt for intent recognition
@@ -140,6 +150,178 @@ Current conversation context is maintained. You have access to:
 
 Be natural and conversational while remaining helpful and efficient.
 If referring to previous context, be specific about what you're referencing.`;
+
+/**
+ * Reflection prompt for the agent
+ */
+export const REFLECTION_PROMPT = `You are an intelligent agent reflecting on execution results.
+
+Goal: {{goal}}
+Step Executed: {{step}}
+Result: {{result}}
+Success: {{success}}
+
+Analyze the result and determine:
+1. Did this step achieve its purpose?
+2. Is the result what was expected?
+3. What should the next action be?
+4. Should we continue, modify the plan, or stop?
+
+Respond with JSON:
+{
+  "analysis": "Brief analysis of the result",
+  "isExpected": true/false,
+  "nextAction": "continue" | "modify_plan" | "retry" | "stop",
+  "reason": "Why this next action",
+  "shouldContinue": true/false
+}`;
+
+/**
+ * Self-correction prompt
+ */
+export const CORRECTION_PROMPT = `You are an intelligent agent that needs to recover from an error.
+
+Original Goal: {{goal}}
+Failed Step: {{step}}
+Error: {{error}}
+Attempt: {{attempt}} of {{maxAttempts}}
+Previous Strategy: {{previousStrategy}}
+
+Determine the best recovery strategy:
+1. retry: Try the same action again (for transient errors)
+2. alternative: Try a different approach to achieve the same goal
+3. skip: Skip this step if non-critical and continue
+4. abort: Stop execution if critical failure
+5. backtrack: Go back and try from a previous step
+
+Respond with JSON:
+{
+  "strategy": "retry" | "alternative" | "skip" | "abort" | "backtrack",
+  "reason": "Why this strategy",
+  "alternativeApproach": "If alternative, describe the new approach",
+  "isCritical": true/false
+}`;
+
+/**
+ * Final synthesis prompt
+ */
+export const SYNTHESIS_PROMPT = `You are an intelligent agent summarizing results for the user.
+
+Original Query: {{query}}
+Intent: {{intent}}
+Steps Completed: {{stepsCompleted}}
+Steps Failed: {{stepsFailed}}
+Final Data: {{data}}
+
+Create a clear, helpful response for the user that:
+1. Answers their original question
+2. Presents the key findings
+3. Notes any limitations or issues encountered
+4. Suggests follow-up actions if relevant
+
+Respond naturally in plain text, formatted nicely for terminal display.`;
+
+/**
+ * Intent recognition prompt (Planner)
+ */
+export const INTENT_RECOGNITION_PROMPT = `You are an intelligent query analyzer. Analyze the following user query and extract structured information.
+
+User Query: "{{query}}"
+
+Determine:
+1. INTENT: What does the user want to do?
+   - search: Find information on the web
+   - find_places: Find locations, businesses, places
+   - compare: Compare multiple items
+   - list: Get a list of items
+   - extract: Extract data from a specific URL
+   - summarize: Summarize content
+   - monitor: Track changes over time
+   - code: Generate code or programming help
+   - project: Create or manage a project
+   - analyze: Analyze code or content
+   - help: Get help or assistance
+   - unknown: Cannot determine
+
+2. ENTITIES: Extract relevant information
+   - topic: Main subject (required)
+   - location: Geographic location (if mentioned)
+   - category: Type or category filter
+   - count: Number of results wanted
+   - timeframe: Date/time constraints
+   - source: Preferred source
+   - url: Specific URL if provided
+   - keywords: Additional search keywords
+   - framework: For code - react, nextjs, vue, etc.
+   - language: Programming language
+
+3. CONFIDENCE: How confident are you? (0.0 to 1.0)
+
+4. SUGGESTED_QUERIES: If query is ambiguous, suggest clarifying alternatives
+
+Respond ONLY with valid JSON in this exact format:
+{
+  "intent": "search",
+  "confidence": 0.95,
+  "entities": {
+    "topic": "main subject",
+    "location": null,
+    "category": null,
+    "count": null,
+    "timeframe": null,
+    "source": null,
+    "url": null,
+    "keywords": [],
+    "framework": null,
+    "language": null
+  },
+  "suggestedQueries": []
+}`;
+
+/**
+ * Action planning prompt (Planner)
+ */
+export const ACTION_PLANNING_PROMPT = `You are an intelligent action planner. Based on the analyzed query, create an execution plan.
+
+Query: "{{query}}"
+Intent: {{intent}}
+Entities: {{entities}}
+
+Available Tools:
+- web_search: Search the internet (params: query, numResults, engine)
+- scrape_page: Scrape a web page (params: url, selectors, waitFor)
+- extract_links: Extract all links from a page (params: url, filter)
+- extract_data: Extract structured data (params: url, schema)
+- process_data: Process and clean data (params: data, operation)
+- summarize: Summarize content using LLM (params: content, maxLength)
+- generate_code: Generate code (params: description, language, framework)
+- create_project: Create a new project (params: name, framework, features)
+- analyze_code: Analyze code (params: code, analysis_type)
+
+Create a step-by-step plan. Each step should:
+- Use exactly one tool
+- Have clear parameters
+- Depend on previous steps if needed
+
+Respond ONLY with valid JSON:
+{
+  "steps": [
+    {
+      "id": "step_1",
+      "order": 1,
+      "tool": "web_search",
+      "params": {
+        "query": "search query",
+        "numResults": 10
+      },
+      "description": "What this step does",
+      "dependsOn": [],
+      "timeout": 30000,
+      "retryable": true
+    }
+  ],
+  "estimatedTime": 15
+}`;
 
 // ============================================
 // Prompt Templates
@@ -453,7 +635,12 @@ export const prompts = {
     intent: SYSTEM_PROMPT_INTENT,
     planner: SYSTEM_PROMPT_PLANNER,
     codeGen: SYSTEM_PROMPT_CODE_GEN,
-    conversation: SYSTEM_PROMPT_CONVERSATION
+    conversation: SYSTEM_PROMPT_CONVERSATION,
+    reflection: REFLECTION_PROMPT,
+    correction: CORRECTION_PROMPT,
+    synthesis: SYNTHESIS_PROMPT,
+    intentRecognition: INTENT_RECOGNITION_PROMPT,
+    actionPlanning: ACTION_PLANNING_PROMPT
   },
   create: {
     intent: createIntentPrompt,

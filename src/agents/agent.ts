@@ -10,6 +10,7 @@ import { EventEmitter } from 'events';
 import { logger } from '../utils/logger';
 import { LMStudioClient } from '../llm/client';
 import { extractJSON } from '../llm/parser';
+import { REFLECTION_PROMPT, CORRECTION_PROMPT, SYNTHESIS_PROMPT } from '../llm/prompts';
 import { Planner, ActionPlan, ParsedIntent, IntentType } from './planner';
 import { Executor, ToolRegistry, ExecutionResult, ToolResult, createDefaultRegistry } from './executor';
 import { AgentMemory, getMemory, Thought, Observation } from './memory';
@@ -120,75 +121,7 @@ export interface AgentEvents {
   'goal:failed': { error: string; partialResult: Partial<AgentRunResult> };
 }
 
-/**
- * Reflection prompt for the agent
- */
-const REFLECTION_PROMPT = `You are an intelligent agent reflecting on execution results.
 
-Goal: {{goal}}
-Step Executed: {{step}}
-Result: {{result}}
-Success: {{success}}
-
-Analyze the result and determine:
-1. Did this step achieve its purpose?
-2. Is the result what was expected?
-3. What should the next action be?
-4. Should we continue, modify the plan, or stop?
-
-Respond with JSON:
-{
-  "analysis": "Brief analysis of the result",
-  "isExpected": true/false,
-  "nextAction": "continue" | "modify_plan" | "retry" | "stop",
-  "reason": "Why this next action",
-  "shouldContinue": true/false
-}`;
-
-/**
- * Self-correction prompt
- */
-const CORRECTION_PROMPT = `You are an intelligent agent that needs to recover from an error.
-
-Original Goal: {{goal}}
-Failed Step: {{step}}
-Error: {{error}}
-Attempt: {{attempt}} of {{maxAttempts}}
-Previous Strategy: {{previousStrategy}}
-
-Determine the best recovery strategy:
-1. retry: Try the same action again (for transient errors)
-2. alternative: Try a different approach to achieve the same goal
-3. skip: Skip this step if non-critical and continue
-4. abort: Stop execution if critical failure
-5. backtrack: Go back and try from a previous step
-
-Respond with JSON:
-{
-  "strategy": "retry" | "alternative" | "skip" | "abort" | "backtrack",
-  "reason": "Why this strategy",
-  "alternativeApproach": "If alternative, describe the new approach",
-  "isCritical": true/false
-}`;
-
-/**
- * Final synthesis prompt
- */
-const SYNTHESIS_PROMPT = `You are an intelligent agent summarizing results for the user.
-
-Original Query: {{query}}
-Intent: {{intent}}
-Steps Completed: {{stepsCompleted}}
-Steps Failed: {{stepsFailed}}
-Final Data: {{data}}
-
-Create a clear, helpful response for the user that:
-1. Answers their original question
-2. Presents the key findings
-3. Notes any limitations or issues encountered
-4. Suggests follow-up actions if relevant
-
-Respond naturally in plain text, formatted nicely for terminal display.`;
 
 /**
  * The Joker Agent - Autonomous agent with Think→Plan→Act→Observe loop
@@ -670,6 +603,53 @@ Respond in 2-3 sentences.`;
     logger.debug('Agent synthesizing response');
 
     try {
+      // Check if we have generated code in the result
+      const finalOutput = result.finalOutput as Record<string, unknown> | null;
+      if (finalOutput && typeof finalOutput === 'object') {
+        // Handle project creation result
+        if ('projectPath' in finalOutput || 'projectStructure' in finalOutput) {
+          const projectName = finalOutput.projectName || 'project';
+          const framework = finalOutput.framework || 'react';
+          const projectPath = finalOutput.projectPath || '';
+          const nextSteps = finalOutput.nextSteps as string[] || [];
+          const projectStructure = finalOutput.projectStructure || '';
+          const inlineCode = finalOutput.code as string || '';
+          
+          let output = `## ✅ Project Created: ${projectName}\n\n`;
+          output += `**Framework:** ${framework}\n`;
+          if (projectPath) output += `**Location:** \`${projectPath}\`\n\n`;
+          
+          if (projectStructure) {
+            output += `### Project Structure:\n\`\`\`\n${projectStructure}\`\`\`\n\n`;
+          }
+          
+          if (inlineCode) {
+            output += `### Project Files:\n\n${inlineCode}\n\n`;
+          }
+          
+          if (nextSteps.length > 0) {
+            output += `### Next Steps:\n`;
+            nextSteps.forEach((step, i) => {
+              output += `${i + 1}. ${step}\n`;
+            });
+          }
+          
+          return output;
+        }
+        
+        // Handle code generation result
+        if ('code' in finalOutput) {
+          const code = finalOutput.code as string;
+          const language = (finalOutput.language as string) || 'typescript';
+          const type = (finalOutput.type as string) || 'component';
+          const name = (finalOutput.name as string) || 'Generated';
+          
+          // Return formatted code directly
+          return `## Generated ${type}: ${name}\n\n\`\`\`${language}\n${code}\n\`\`\`\n\n**${finalOutput.message || 'Code generated successfully!'}**\n\nYou can copy this code to your project and customize it as needed.`;
+        }
+      }
+
+      // For non-code results, use LLM synthesis
       const prompt = SYNTHESIS_PROMPT
         .replace('{{query}}', query)
         .replace('{{intent}}', intent.intent)
@@ -686,6 +666,14 @@ Respond in 2-3 sentences.`;
 
     } catch (error) {
       logger.warn('Synthesis phase LLM call failed', { error });
+      
+      // Fallback: Check if we have code to display
+      const finalOutput = result.finalOutput as Record<string, unknown> | null;
+      if (finalOutput && typeof finalOutput === 'object' && 'code' in finalOutput) {
+        const code = finalOutput.code as string;
+        const language = (finalOutput.language as string) || 'typescript';
+        return `## Generated Code\n\n\`\`\`${language}\n${code}\n\`\`\``;
+      }
       
       if (result.success) {
         return `I completed your request: "${query}"\n\nResults have been processed successfully.`;

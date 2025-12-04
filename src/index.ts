@@ -5,6 +5,7 @@
 
 import { Terminal, terminal, theme, commandRegistry, display, progressTracker } from './cli/index.js';
 import { LMStudioClient, lmStudioClient } from './llm/client.js';
+import { SYSTEM_PROMPT_AGENT } from './llm/prompts.js';
 import { logger } from './utils/logger.js';
 import { config, llmConfig, paths } from './utils/config.js';
 import { ChatMessage } from './types/index.js';
@@ -26,33 +27,7 @@ class TheJoker {
     this.llmClient = lmStudioClient;
     
     // System prompt for The Joker agent
-    this.systemPrompt = `You are "The Joker", an advanced agentic terminal assistant. You have two main capabilities:
-
-1. **Web Scraping**: You can scrape websites, extract data, search the web, and gather information from any URL.
-
-2. **Autonomous Coding**: You can create complete projects from scratch. When asked to create an app, you:
-   - Analyze the requirements
-   - Plan the project structure
-   - Generate all necessary files (components, pages, APIs, configs)
-   - Set up dependencies
-   - Provide instructions to run the project
-
-You are powered by qwen2.5-coder-14b-instruct-uncensored via LM Studio.
-
-When responding:
-- Be concise but helpful
-- For coding tasks, provide complete, working code
-- For web scraping tasks, explain what data you'll extract
-- Use markdown formatting for code blocks
-- Ask clarifying questions if the request is ambiguous
-
-Current capabilities available:
-- Web scraping with Puppeteer
-- Code generation for React, Next.js, Node.js, TypeScript
-- File system operations
-- Project scaffolding
-
-Always respond in a helpful, focused manner.`;
+    this.systemPrompt = SYSTEM_PROMPT_AGENT;
 
     // Initialize conversation with system prompt
     this.conversationHistory.push({
@@ -210,7 +185,7 @@ Always respond in a helpful, focused manner.`;
 
       // Display the final answer
       console.log(''); // Empty line before response
-      display.agentResult(result.finalAnswer);
+      console.log(display.agentResult(result.finalAnswer));
 
       // Show stats if verbose
       if (result.iterations > 1 || result.corrections.length > 0) {
