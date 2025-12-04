@@ -294,11 +294,71 @@ export class Display {
   }
 
   /**
-   * Display agent result
+   * Display agent result with markdown code block support
    */
   agentResult(result: string): string {
+    // Check if result contains markdown code blocks
+    if (result.includes('```')) {
+      return this.formatMarkdownResult(result);
+    }
+    
     const icon = this.config.showIcons ? ICONS.result + ' ' : '';
     return theme.success(icon + 'Result: ') + theme.secondary(result);
+  }
+
+  /**
+   * Format markdown result with code blocks
+   */
+  formatMarkdownResult(markdown: string): string {
+    const lines = markdown.split('\n');
+    const output: string[] = [];
+    let inCodeBlock = false;
+    let codeLanguage = '';
+    let codeLines: string[] = [];
+    
+    for (const line of lines) {
+      // Check for code block start/end
+      if (line.startsWith('```')) {
+        if (!inCodeBlock) {
+          // Start of code block
+          inCodeBlock = true;
+          codeLanguage = line.slice(3).trim() || 'code';
+          codeLines = [];
+        } else {
+          // End of code block - render accumulated code
+          inCodeBlock = false;
+          output.push('');
+          output.push(theme.accent(`┌── ${codeLanguage.toUpperCase()} ${'─'.repeat(Math.max(0, this.config.width - codeLanguage.length - 6))}`));
+          for (const codeLine of codeLines) {
+            output.push(theme.muted('│ ') + theme.info(codeLine));
+          }
+          output.push(theme.accent(`└${'─'.repeat(this.config.width - 1)}`));
+          output.push('');
+        }
+        continue;
+      }
+      
+      if (inCodeBlock) {
+        codeLines.push(line);
+      } else {
+        // Format headers
+        if (line.startsWith('## ')) {
+          output.push('');
+          output.push(theme.success(ICONS.success + ' ' + line.slice(3)));
+        } else if (line.startsWith('# ')) {
+          output.push('');
+          output.push(theme.primary(line.slice(2)));
+        } else if (line.startsWith('**') && line.endsWith('**')) {
+          output.push(theme.bold(line.slice(2, -2)));
+        } else if (line.trim()) {
+          output.push(theme.secondary(line));
+        } else {
+          output.push('');
+        }
+      }
+    }
+    
+    return output.join('\n');
   }
 
   /**

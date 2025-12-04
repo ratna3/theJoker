@@ -9,6 +9,7 @@
 import { logger } from '../utils/logger';
 import { LMStudioClient } from '../llm/client';
 import { extractJSON } from '../llm/parser';
+import { INTENT_RECOGNITION_PROMPT, ACTION_PLANNING_PROMPT } from '../llm/prompts';
 
 /**
  * Intent types for query classification
@@ -94,107 +95,7 @@ export interface PlannerConfig {
   confidenceThreshold?: number;
 }
 
-/**
- * Intent recognition prompt
- */
-const INTENT_RECOGNITION_PROMPT = `You are an intelligent query analyzer. Analyze the following user query and extract structured information.
 
-User Query: "{{query}}"
-
-Determine:
-1. INTENT: What does the user want to do?
-   - search: Find information on the web
-   - find_places: Find locations, businesses, places
-   - compare: Compare multiple items
-   - list: Get a list of items
-   - extract: Extract data from a specific URL
-   - summarize: Summarize content
-   - monitor: Track changes over time
-   - code: Generate code or programming help
-   - project: Create or manage a project
-   - analyze: Analyze code or content
-   - help: Get help or assistance
-   - unknown: Cannot determine
-
-2. ENTITIES: Extract relevant information
-   - topic: Main subject (required)
-   - location: Geographic location (if mentioned)
-   - category: Type or category filter
-   - count: Number of results wanted
-   - timeframe: Date/time constraints
-   - source: Preferred source
-   - url: Specific URL if provided
-   - keywords: Additional search keywords
-   - framework: For code - react, nextjs, vue, etc.
-   - language: Programming language
-
-3. CONFIDENCE: How confident are you? (0.0 to 1.0)
-
-4. SUGGESTED_QUERIES: If query is ambiguous, suggest clarifying alternatives
-
-Respond ONLY with valid JSON in this exact format:
-{
-  "intent": "search",
-  "confidence": 0.95,
-  "entities": {
-    "topic": "main subject",
-    "location": null,
-    "category": null,
-    "count": null,
-    "timeframe": null,
-    "source": null,
-    "url": null,
-    "keywords": [],
-    "framework": null,
-    "language": null
-  },
-  "suggestedQueries": []
-}`;
-
-/**
- * Action planning prompt
- */
-const ACTION_PLANNING_PROMPT = `You are an intelligent action planner. Based on the analyzed query, create an execution plan.
-
-Query: "{{query}}"
-Intent: {{intent}}
-Entities: {{entities}}
-
-Available Tools:
-- web_search: Search the internet (params: query, numResults, engine)
-- scrape_page: Scrape a web page (params: url, selectors, waitFor)
-- extract_links: Extract all links from a page (params: url, filter)
-- extract_data: Extract structured data (params: url, schema)
-- process_data: Process and clean data (params: data, operation)
-- summarize: Summarize content using LLM (params: content, maxLength)
-- generate_code: Generate code (params: description, language, framework)
-- create_project: Create a new project (params: name, framework, features)
-- analyze_code: Analyze code (params: code, analysis_type)
-
-Create a step-by-step plan. Each step should:
-- Use exactly one tool
-- Have clear parameters
-- Depend on previous steps if needed
-
-Respond ONLY with valid JSON:
-{
-  "steps": [
-    {
-      "id": "step_1",
-      "order": 1,
-      "tool": "web_search",
-      "params": {
-        "query": "search query",
-        "numResults": 10
-      },
-      "description": "What this step does",
-      "dependsOn": [],
-      "timeout": 30000,
-      "retryable": true
-    }
-  ],
-  "estimatedTime": 15
-}`;
 
 /**
  * Query Analyzer and Action Planner

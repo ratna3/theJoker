@@ -38,7 +38,7 @@ function getEnvBool(key: string, fallback: boolean): boolean {
  * LLM Configuration
  */
 export const llmConfig: LLMConfig = {
-  baseUrl: getEnv('LM_STUDIO_BASE_URL', 'http://192.168.56.1:1234'),
+  baseUrl: getEnv('LM_STUDIO_BASE_URL', 'http://localhost:1234'),
   model: getEnv('LM_STUDIO_MODEL', 'qwen2.5-coder-14b-instruct-uncensored'),
   apiKey: getEnv('LM_STUDIO_API_KEY', 'not-needed'),
   temperature: 0.7,
