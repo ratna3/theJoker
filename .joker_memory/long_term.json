@@ -1,17 +1,20 @@
 {
-  "successfulPatterns": [
+  "successfulPatterns": [],
+  "failedPatterns": [
     {
-      "id": "pattern_1764841761462_j5cwl2",
-      "query": "create a Next.js app with Tailwind",
-      "intent": "project",
-      "success": true,
+      "id": "pattern_1771193525169_y8zdbv",
+      "query": "tui",
+      "intent": "unknown",
+      "success": false,
       "steps": [
-        "create_project"
+        "web_search",
+        "extract_links",
+        "scrape_page",
+        "summarize"
       ],
-      "timestamp": "2025-12-04T09:49:21.462Z"
+      "timestamp": "2026-02-15T22:12:05.169Z"
     }
   ],
-  "failedPatterns": [],
   "siteKnowledge": [],
   "preferences": {}
 }
