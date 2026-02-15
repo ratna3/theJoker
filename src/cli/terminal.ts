@@ -255,7 +255,7 @@ export class Terminal extends EventEmitter {
     const askQuestion = (): void => {
       this.rl?.question(promptText, async (input) => {
         const trimmedInput = input.trim();
-        
+
         if (!trimmedInput) {
           askQuestion();
           return;
@@ -280,7 +280,7 @@ export class Terminal extends EventEmitter {
           logger.error('REPL error', { error: err.message, stack: err.stack });
         }
         this.isProcessing = false;
-        
+
         console.log();
         askQuestion();
       });
@@ -358,7 +358,7 @@ export class Terminal extends EventEmitter {
    */
   private showHelp(): void {
     this.header('The Joker - Help');
-    
+
     console.log(theme.accent('\n📋 Commands:'));
     this.list([
       'help     - Show this help message',
@@ -368,7 +368,7 @@ export class Terminal extends EventEmitter {
       'exit     - Exit the terminal',
     ]);
 
-    console.log(theme.accent('\n🕸️ Web Scraping:'));
+    console.log(theme.accent('\n🕸️  Web Scraping:'));
     this.list([
       'scrape <url>           - Scrape a webpage',
       'search <query>         - Search the web',
@@ -382,10 +382,38 @@ export class Terminal extends EventEmitter {
       'modify <file> <change> - Modify existing file',
     ]);
 
+    console.log(theme.accent('\n🎨 Vibe Coding Mode:'));
+    this.list([
+      'vibe <description>     - Build a complete app from a natural language prompt',
+      'vibe-stop              - Stop the running dev server',
+    ]);
+    console.log(theme.muted('  Aliases: build, create-app'));
+
+    console.log(theme.accent('\n🔍 Hack Mode (Recon & OSINT):'));
+    this.list([
+      'recon <domain>         - Run passive reconnaissance on a domain',
+    ]);
+    console.log(theme.muted('  Aliases: scan, osint, investigate'));
+
+    console.log(theme.accent('\n🖥️  TUI Dashboard:'));
+    this.list([
+      'tui                    - Toggle interactive split-pane dashboard',
+    ]);
+    console.log(theme.muted('  Aliases: dashboard, ui'));
+
     console.log(theme.accent('\n💡 Examples:'));
-    console.log(theme.muted('  • "scrape https://example.com and extract all links"'));
-    console.log(theme.muted('  • "create a Next.js app with Tailwind and auth"'));
-    console.log(theme.muted('  • "generate a React component for a todo list"'));
+    console.log(theme.white('  Web Scraping:'));
+    console.log(theme.muted('    • scrape https://example.com'));
+    console.log(theme.muted('    • search best programming languages 2025'));
+    console.log(theme.white('  Vibe Coding:'));
+    console.log(theme.muted('    • vibe Build me a portfolio website with dark mode and a contact form'));
+    console.log(theme.muted('    • vibe Create a todo app with React and local storage'));
+    console.log(theme.muted('    • vibe Make an Express REST API with user authentication'));
+    console.log(theme.white('  Hack Mode:'));
+    console.log(theme.muted('    • recon example.com'));
+    console.log(theme.muted('    • scan google.com'));
+    console.log(theme.white('  Dashboard:'));
+    console.log(theme.muted('    • tui'));
     console.log();
   }
 
@@ -397,9 +425,9 @@ export class Terminal extends EventEmitter {
     const progress = Math.round((current / total) * width);
     const bar = '█'.repeat(progress) + '░'.repeat(width - progress);
     const percent = Math.round((current / total) * 100);
-    
+
     process.stdout.write(`\r${theme.primary(bar)} ${percent}% ${theme.muted(label)}`);
-    
+
     if (current === total) {
       console.log();
     }
