@@ -10,6 +10,7 @@ import { logger } from './utils/logger.js';
 import { config, llmConfig, paths } from './utils/config.js';
 import { ChatMessage } from './types/index.js';
 import { JokerAgent, getAgent, AgentState, getMemory } from './agents/index.js';
+import { ReconPipeline } from './tools/recon.js';
 
 /**
  * Main application class
@@ -25,7 +26,7 @@ class TheJoker {
   constructor() {
     this.terminal = terminal;
     this.llmClient = lmStudioClient;
-    
+
     // System prompt for The Joker agent
     this.systemPrompt = SYSTEM_PROMPT_AGENT;
 
@@ -41,24 +42,24 @@ class TheJoker {
    */
   async initialize(): Promise<boolean> {
     logger.info('Initializing The Joker...');
-    
+
     // Show banner
     this.terminal.showBanner();
-    
+
     // Test LLM connection
     this.terminal.startSpinner('Connecting to LM Studio...');
-    
+
     const connected = await this.llmClient.testConnection();
-    
+
     if (!connected) {
       this.terminal.spinnerFail('Failed to connect to LM Studio');
       this.terminal.print(`\nMake sure LM Studio is running at ${llmConfig.baseUrl}`, 'warning');
       this.terminal.print('and has a model loaded (qwen2.5-coder-14b-instruct-uncensored)', 'warning');
       return false;
     }
-    
+
     this.terminal.spinnerSuccess('Connected to LM Studio');
-    
+
     // Initialize the autonomous agent
     this.terminal.startSpinner('Initializing agent...');
     try {
@@ -68,23 +69,23 @@ class TheJoker {
         enableLearning: true,
         verboseMode: false,
       });
-      
+
       // Set up agent event handlers
       this.setupAgentEvents();
-      
+
       this.terminal.spinnerSuccess('Agent initialized');
     } catch (error) {
       this.terminal.spinnerFail('Failed to initialize agent');
       logger.error('Agent initialization failed', { error });
       this.agentMode = false; // Fall back to simple mode
     }
-    
+
     // Display configuration info
     this.terminal.print(`\nModel: ${llmConfig.model}`, 'muted');
     this.terminal.print(`Endpoint: ${llmConfig.baseUrl}`, 'muted');
     this.terminal.print(`Mode: ${this.agentMode ? 'Autonomous Agent' : 'Simple Chat'}`, 'muted');
     this.terminal.print('\nType "help" for available commands\n', 'info');
-    
+
     return true;
   }
 
@@ -96,7 +97,7 @@ class TheJoker {
 
     this.agent.on('state:change', ({ from, to }) => {
       logger.debug('Agent state changed', { from, to });
-      
+
       // Show state transitions to user
       switch (to) {
         case AgentState.THINKING:
@@ -122,12 +123,12 @@ class TheJoker {
     });
 
     this.agent.on('plan:created', (plan) => {
-      logger.debug('Plan created', { 
-        planId: plan.id, 
+      logger.debug('Plan created', {
+        planId: plan.id,
         steps: plan.steps.length,
-        intent: plan.intent 
+        intent: plan.intent
       });
-      
+
       // Show plan summary to user
       this.terminal.print(`\n📋 Plan: ${plan.steps.length} steps for "${plan.query.slice(0, 50)}..."`, 'info');
       plan.steps.forEach((step: { description: string }, i: number) => {
@@ -138,10 +139,10 @@ class TheJoker {
 
     this.agent.on('step:complete', ({ step, result }) => {
       const status = result.success ? '✓' : '✗';
-      logger.debug('Step complete', { 
-        step: step.id, 
+      logger.debug('Step complete', {
+        step: step.id,
         success: result.success,
-        time: result.metadata.executionTime 
+        time: result.metadata.executionTime
       });
     });
 
@@ -180,7 +181,7 @@ class TheJoker {
     try {
       // Run the agent
       const result = await this.agent.run(input);
-      
+
       progressTracker.completeStep('synthesizing', 'Complete');
 
       // Display the final answer
@@ -205,7 +206,7 @@ class TheJoker {
    */
   async processInput(input: string): Promise<void> {
     logger.debug('Processing input (simple mode)', { input });
-    
+
     // Add user message to history
     this.conversationHistory.push({
       role: 'user',
@@ -218,9 +219,9 @@ class TheJoker {
     try {
       // Send to LLM
       const response = await this.llmClient.chat(this.conversationHistory);
-      
+
       this.terminal.stopSpinner();
-      
+
       // Add assistant response to history
       this.conversationHistory.push({
         role: 'assistant',
@@ -229,7 +230,7 @@ class TheJoker {
 
       // Display response
       this.terminal.displayAgentResponse(response.content);
-      
+
       // Log usage stats
       if (response.usage) {
         logger.debug('Token usage', response.usage);
@@ -247,7 +248,7 @@ class TheJoker {
    */
   async start(): Promise<void> {
     const initialized = await this.initialize();
-    
+
     if (!initialized) {
       this.terminal.print('\nPress Enter to retry or Ctrl+C to exit...', 'warning');
       await new Promise(resolve => setTimeout(resolve, 3000));
@@ -291,7 +292,7 @@ class TheJoker {
       execute: async () => {
         const memory = getMemory();
         const stats = memory.getStats();
-        
+
         display.box('Agent Memory', [
           `Sessions: ${stats.sessions}`,
           `Messages: ${stats.messages}`,
@@ -314,7 +315,7 @@ class TheJoker {
           this.terminal.print('Agent not initialized', 'warning');
           return { success: false };
         }
-        
+
         const stats = this.agent.getStats();
         display.box('Agent Status', [
           `State: ${stats.state}`,
@@ -343,6 +344,67 @@ class TheJoker {
         }
       },
     });
+
+    // ============================================
+    // 🔍 Recon Command — Domain Reconnaissance
+    // ============================================
+    commandRegistry.register({
+      name: 'recon',
+      aliases: ['scan', 'osint', 'investigate'],
+      description: 'Run passive reconnaissance on a domain (DNS, WHOIS, SSL, tech stack, emails, social links)',
+      category: 'tools',
+      execute: async (args) => {
+        const domain = args && args.length > 0 ? args[0] : null;
+        if (!domain) {
+          this.terminal.print('Usage: recon <domain>', 'warning');
+          this.terminal.print('Example: recon example.com', 'muted');
+          return { success: false };
+        }
+
+        this.terminal.print(`\n🔍 Starting reconnaissance on: ${domain}`, 'info');
+        this.terminal.print('   This may take 15-30 seconds...\n', 'muted');
+
+        const pipeline = new ReconPipeline();
+
+        // Show real-time progress
+        pipeline.on('module:start', (name: string) => {
+          this.terminal.print(`   🔄 ${name}...`, 'muted');
+        });
+        pipeline.on('module:complete', (name: string) => {
+          this.terminal.print(`   ✅ ${name}`, 'success');
+        });
+
+        try {
+          const result = await pipeline.recon(domain);
+          const report = pipeline.generateReport(result);
+
+          // Save report to file
+          const fs = await import('fs');
+          const path = await import('path');
+          const reportsDir = path.resolve(process.cwd(), 'reports');
+          if (!fs.existsSync(reportsDir)) {
+            fs.mkdirSync(reportsDir, { recursive: true });
+          }
+          const cleanDomain = domain.replace(/[^a-zA-Z0-9.\-]/g, '_');
+          const reportPath = path.join(reportsDir, `${cleanDomain}-recon.md`);
+          fs.writeFileSync(reportPath, report, 'utf-8');
+
+          // Show summary
+          this.terminal.print(`\n📊 Security Score: ${result.securityScore}/100`, result.securityScore >= 70 ? 'success' : 'warning');
+          this.terminal.print(`💻 Tech Stack: ${result.techStack.detected.map(t => t.name).join(', ') || 'None detected'}`, 'info');
+          this.terminal.print(`📧 Emails: ${result.emails.length > 0 ? result.emails.join(', ') : 'None found'}`, 'info');
+          this.terminal.print(`🔗 Links: ${result.links.internal} internal, ${result.links.external} external`, 'info');
+          this.terminal.print(`\n📄 Full report saved to: ${reportPath}`, 'success');
+
+          return { success: true, data: result };
+        } catch (error) {
+          const err = error as Error;
+          this.terminal.print(`\n❌ Recon failed: ${err.message}`, 'error');
+          logger.error('Recon error', { error: err.message });
+          return { success: false };
+        }
+      },
+    });
   }
 
   /**
@@ -352,12 +414,12 @@ class TheJoker {
     // Persist agent memory
     const memory = getMemory();
     memory.persist();
-    
+
     // Cancel any running agent operations
     if (this.agent) {
       this.agent.cancel();
     }
-    
+
     this.terminal.close();
     logger.info('The Joker terminated');
   }
