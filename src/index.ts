@@ -12,6 +12,7 @@ import { ChatMessage } from './types/index.js';
 import { JokerAgent, getAgent, AgentState, getMemory } from './agents/index.js';
 import { ReconPipeline } from './tools/recon.js';
 import { JokerDashboard } from './cli/dashboard.js';
+import { VibeCodingPipeline } from './agents/vibe-coder.js';
 
 /**
  * Main application class
@@ -435,6 +436,95 @@ class TheJoker {
         } else {
           this.dashboard.hide();
           this.terminal.print('TUI Dashboard disabled — back to standard mode', 'success');
+        }
+        return { success: true };
+      },
+    });
+
+    // ============================================
+    // 🎨 Vibe Coding Command — Natural Language → Running App
+    // ============================================
+    let vibePipeline: VibeCodingPipeline | null = null;
+
+    commandRegistry.register({
+      name: 'vibe',
+      aliases: ['build', 'create-app'],
+      description: 'Build a complete app from a natural language description',
+      category: 'tools',
+      execute: async (args) => {
+        const prompt = args && args.length > 0 ? args.join(' ') : null;
+        if (!prompt) {
+          this.terminal.print('Usage: vibe <description>', 'warning');
+          this.terminal.print('Example: vibe Build me a portfolio website with dark mode and a contact form', 'muted');
+          return { success: false };
+        }
+
+        // If there's a live session, refine instead of re-creating
+        if (vibePipeline && vibePipeline.isLiveSession()) {
+          this.terminal.print(`\n🔄 Refining live project...`, 'info');
+          const result = await vibePipeline.refine(prompt);
+          if (result.success) {
+            this.terminal.print(`✅ Updated ${result.filesChanged.length} files — HMR will pick up changes!`, 'success');
+          } else {
+            this.terminal.print('❌ Refinement failed', 'error');
+          }
+          return { success: result.success };
+        }
+
+        this.terminal.print(`\n🎨 Vibe Coding Mode`, 'info');
+        this.terminal.print(`   "${prompt}"`, 'muted');
+        this.terminal.print('   This may take 1-3 minutes...\n', 'muted');
+
+        vibePipeline = new VibeCodingPipeline(this.llmClient as any);
+
+        // Wire step events to display
+        vibePipeline.on('step:detail', ({ message }: { step: string; message: string }) => {
+          this.terminal.print(`   ${message}`, 'info');
+        });
+        vibePipeline.on('step:complete', (step: string) => {
+          this.terminal.print(`   ✅ ${step}`, 'success');
+        });
+        vibePipeline.on('pipeline:error', ({ error }: { error: string }) => {
+          this.terminal.print(`   ❌ ${error}`, 'error');
+        });
+
+        try {
+          const result = await vibePipeline.run(prompt);
+
+          if (result.success) {
+            this.terminal.print('\n' + '═'.repeat(50), 'success');
+            this.terminal.print(`🚀 App live at: ${result.devServerUrl}`, 'success');
+            this.terminal.print(`📁 Project: ${result.projectPath}`, 'info');
+            this.terminal.print(`🧬 ${result.filesGenerated.length} files generated`, 'info');
+            this.terminal.print(`⏱ Total: ${(result.totalTimeMs / 1000).toFixed(1)}s`, 'muted');
+            this.terminal.print('═'.repeat(50), 'success');
+            this.terminal.print('\n💡 Type another `vibe` prompt to refine the app, or `vibe-stop` to stop the server.\n', 'muted');
+          } else {
+            this.terminal.print(`\n❌ Vibe coding failed: ${result.errors.join(', ')}`, 'error');
+          }
+
+          return { success: result.success, data: result };
+        } catch (error) {
+          const err = error as Error;
+          this.terminal.print(`\n❌ Vibe coding failed: ${err.message}`, 'error');
+          logger.error('Vibe coding error', { error: err.message });
+          return { success: false };
+        }
+      },
+    });
+
+    commandRegistry.register({
+      name: 'vibe-stop',
+      aliases: ['stop-dev'],
+      description: 'Stop the running vibe coding dev server',
+      category: 'tools',
+      execute: async () => {
+        if (vibePipeline && vibePipeline.isLiveSession()) {
+          await vibePipeline.cleanup();
+          this.terminal.print('🛑 Dev server stopped', 'success');
+          vibePipeline = null;
+        } else {
+          this.terminal.print('No vibe coding session running', 'warning');
         }
         return { success: true };
       },

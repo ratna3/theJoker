@@ -323,6 +323,46 @@ Respond ONLY with valid JSON:
   "estimatedTime": 15
 }`;
 
+/**
+ * System prompt for Vibe Coding — natural language → project spec
+ */
+export const SYSTEM_PROMPT_VIBE_CODING = `You are an AI project architect for "The Joker" AI terminal.
+
+Given a natural language description of an app the user wants to build, output a JSON specification that I can use to scaffold and generate the project.
+
+Rules:
+1. Choose the most appropriate framework based on the description
+2. Break the app into logical pages and reusable components
+3. Include all features mentioned by the user
+4. Name things using standard conventions (PascalCase for components, kebab-case for project name)
+5. TypeScript by default
+
+Respond with ONLY valid JSON in this exact format:
+{
+  "name": "project-name",
+  "framework": "react" | "nextjs" | "vue" | "express" | "node",
+  "language": "typescript",
+  "styling": "tailwind" | "css" | "scss",
+  "features": ["dark-mode", "contact-form", "responsive"],
+  "pages": [
+    {
+      "name": "HomePage",
+      "path": "/",
+      "description": "Landing page with hero section, feature highlights, and CTA",
+      "components": ["Navbar", "Hero", "Features", "Footer"]
+    }
+  ],
+  "components": [
+    {
+      "name": "Navbar",
+      "type": "component",
+      "description": "Responsive navigation bar with dark mode toggle and mobile menu",
+      "props": [{ "name": "darkMode", "type": "boolean" }]
+    }
+  ],
+  "globalStyles": "Dark mode support with CSS variables, modern clean design"
+}`;
+
 // ============================================
 // Prompt Templates
 // ============================================
@@ -333,8 +373,8 @@ Respond ONLY with valid JSON:
 export function createIntentPrompt(userQuery: string): ChatMessage[] {
   return [
     { role: 'system', content: SYSTEM_PROMPT_INTENT },
-    { 
-      role: 'user', 
+    {
+      role: 'user',
       content: `Analyze this query and determine the intent:
 
 "${userQuery}"
@@ -345,14 +385,27 @@ Respond with JSON only.`
 }
 
 /**
+ * Template for Vibe Coding prompt decomposition
+ */
+export function createVibeCodingPrompt(userPrompt: string): ChatMessage[] {
+  return [
+    { role: 'system', content: SYSTEM_PROMPT_VIBE_CODING },
+    {
+      role: 'user',
+      content: `I want to build the following app:\n\n"${userPrompt}"\n\nAnalyze this and output a structured JSON project specification. Respond with JSON only.`
+    }
+  ];
+}
+
+/**
  * Template for action planning
  */
 export function createPlanPrompt(
-  userQuery: string, 
-  intent: Intent, 
+  userQuery: string,
+  intent: Intent,
   tools: Tool[]
 ): ChatMessage[] {
-  const toolDescriptions = tools.map(t => 
+  const toolDescriptions = tools.map(t =>
     `- ${t.name}: ${t.description}\n  Parameters: ${t.parameters.map(p => `${p.name}(${p.type}${p.required ? ', required' : ''})`).join(', ')}`
   ).join('\n');
 
@@ -604,10 +657,10 @@ export function truncateContent(content: string, maxChars: number = 10000): stri
  */
 export function formatToolsForPrompt(tools: Tool[]): string {
   return tools.map(tool => {
-    const params = tool.parameters.map(p => 
+    const params = tool.parameters.map(p =>
       `  - ${p.name} (${p.type}${p.required ? ', required' : ', optional'}): ${p.description}`
     ).join('\n');
-    
+
     return `**${tool.name}**
 ${tool.description}
 Parameters:
@@ -646,6 +699,7 @@ export const prompts = {
     intent: createIntentPrompt,
     plan: createPlanPrompt,
     codeGen: createCodeGenPrompt,
+    vibeCoding: createVibeCodingPrompt,
     extraction: createExtractionPrompt,
     scaffold: createScaffoldPrompt,
     errorExplanation: createErrorExplanationPrompt,
