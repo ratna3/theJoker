@@ -11,6 +11,7 @@ import { config, llmConfig, paths } from './utils/config.js';
 import { ChatMessage } from './types/index.js';
 import { JokerAgent, getAgent, AgentState, getMemory } from './agents/index.js';
 import { ReconPipeline } from './tools/recon.js';
+import { JokerDashboard } from './cli/dashboard.js';
 
 /**
  * Main application class
@@ -19,13 +20,16 @@ class TheJoker {
   private terminal: Terminal;
   private llmClient: LMStudioClient;
   private agent: JokerAgent | null = null;
+  private dashboard: JokerDashboard;
   private conversationHistory: ChatMessage[] = [];
   private systemPrompt: string;
   private agentMode: boolean = true; // Use autonomous agent by default
+  private dashboardMode: boolean = false; // TUI dashboard mode
 
   constructor() {
     this.terminal = terminal;
     this.llmClient = lmStudioClient;
+    this.dashboard = new JokerDashboard();
 
     // System prompt for The Joker agent
     this.systemPrompt = SYSTEM_PROMPT_AGENT;
@@ -101,25 +105,51 @@ class TheJoker {
       // Show state transitions to user
       switch (to) {
         case AgentState.THINKING:
-          display.agentThinking('Analyzing your request...');
+          if (this.dashboardMode) {
+            this.dashboard.addStateChange(from, 'THINKING');
+          } else {
+            display.agentThinking('Analyzing your request...');
+          }
           break;
         case AgentState.PLANNING:
-          display.agentAction('Creating action plan...');
+          if (this.dashboardMode) {
+            this.dashboard.addStateChange(from, 'PLANNING');
+          } else {
+            display.agentAction('Creating action plan...');
+          }
           break;
         case AgentState.ACTING:
-          display.agentAction('Executing plan...');
+          if (this.dashboardMode) {
+            this.dashboard.addStateChange(from, 'ACTING');
+          } else {
+            display.agentAction('Executing plan...');
+          }
           break;
         case AgentState.OBSERVING:
-          display.agentThinking('Analyzing results...');
+          if (this.dashboardMode) {
+            this.dashboard.addStateChange(from, 'OBSERVING');
+          } else {
+            display.agentThinking('Analyzing results...');
+          }
           break;
         case AgentState.CORRECTING:
-          display.agentThinking('Self-correcting...');
+          if (this.dashboardMode) {
+            this.dashboard.addStateChange(from, 'CORRECTING');
+          } else {
+            display.agentThinking('Self-correcting...');
+          }
           break;
       }
     });
 
     this.agent.on('thought', (thought) => {
       logger.debug('Agent thought', { thought: thought.reasoning.slice(0, 100) });
+      if (this.dashboardMode) {
+        this.dashboard.addThought({
+          reasoning: thought.reasoning,
+          confidence: thought.confidence,
+        });
+      }
     });
 
     this.agent.on('plan:created', (plan) => {
@@ -130,11 +160,20 @@ class TheJoker {
       });
 
       // Show plan summary to user
-      this.terminal.print(`\n📋 Plan: ${plan.steps.length} steps for "${plan.query.slice(0, 50)}..."`, 'info');
-      plan.steps.forEach((step: { description: string }, i: number) => {
-        this.terminal.print(`   ${i + 1}. ${step.description}`, 'muted');
-      });
-      this.terminal.print('', 'muted');
+      if (this.dashboardMode) {
+        this.dashboard.addPlan({
+          id: plan.id,
+          intent: plan.intent,
+          query: plan.query,
+          steps: plan.steps,
+        });
+      } else {
+        this.terminal.print(`\n📋 Plan: ${plan.steps.length} steps for "${plan.query.slice(0, 50)}..."`, 'info');
+        plan.steps.forEach((step: { description: string }, i: number) => {
+          this.terminal.print(`   ${i + 1}. ${step.description}`, 'muted');
+        });
+        this.terminal.print('', 'muted');
+      }
     });
 
     this.agent.on('step:complete', ({ step, result }) => {
@@ -144,10 +183,20 @@ class TheJoker {
         success: result.success,
         time: result.metadata.executionTime
       });
+      if (this.dashboardMode) {
+        this.dashboard.addToolResult(
+          { tool: step.tool, description: step.description, id: step.id },
+          result
+        );
+      }
     });
 
     this.agent.on('correction', (correction) => {
-      this.terminal.print(`⚡ Self-correction: ${correction.strategy} (attempt ${correction.attempt}/${correction.maxAttempts})`, 'warning');
+      if (this.dashboardMode) {
+        this.dashboard.addCorrection(correction);
+      } else {
+        this.terminal.print(`⚡ Self-correction: ${correction.strategy} (attempt ${correction.attempt}/${correction.maxAttempts})`, 'warning');
+      }
     });
 
     this.agent.on('goal:achieved', (result) => {
@@ -156,10 +205,16 @@ class TheJoker {
         time: result.totalTime,
         iterations: result.iterations,
       });
+      if (this.dashboardMode) {
+        this.dashboard.addGoalAchieved(result);
+      }
     });
 
     this.agent.on('goal:failed', ({ error }) => {
       logger.error('Goal failed', { error });
+      if (this.dashboardMode) {
+        this.dashboard.addGoalFailed(error);
+      }
     });
   }
 
@@ -342,6 +397,46 @@ class TheJoker {
           this.terminal.print('Agent not initialized', 'warning');
           return { success: false };
         }
+      },
+    });
+
+    // ============================================
+    // 🖥️ TUI Dashboard Command — Interactive Mode
+    // ============================================
+    commandRegistry.register({
+      name: 'tui',
+      aliases: ['dashboard', 'ui'],
+      description: 'Toggle interactive TUI dashboard with live agent visualization',
+      category: 'agent',
+      execute: async () => {
+        this.dashboardMode = !this.dashboardMode;
+        if (this.dashboardMode) {
+          this.terminal.print('🖥️  Launching TUI Dashboard...', 'info');
+          this.terminal.print('   [Tab] Switch pane  [q] Quit  [c] Clear  [i/Enter] Focus input  [Esc] Back', 'muted');
+
+          // Small delay to let the message display before blessed takes over the screen
+          await new Promise(resolve => setTimeout(resolve, 500));
+
+          this.dashboard.setModelName(llmConfig.model);
+          this.dashboard.show();
+
+          // Wire dashboard input to agent processing
+          this.dashboard.on('input', async (input: string) => {
+            if (this.agent) {
+              await this.processInputWithAgent(input);
+            }
+          });
+
+          // Wire quit to exit dashboard mode
+          this.dashboard.on('quit', () => {
+            this.dashboardMode = false;
+            this.terminal.print('Returned to standard terminal mode', 'success');
+          });
+        } else {
+          this.dashboard.hide();
+          this.terminal.print('TUI Dashboard disabled — back to standard mode', 'success');
+        }
+        return { success: true };
       },
     });
 
