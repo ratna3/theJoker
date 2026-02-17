@@ -5,9 +5,10 @@
 
 import { Terminal, terminal, theme, commandRegistry, display, progressTracker } from './cli/index.js';
 import { LMStudioClient, lmStudioClient } from './llm/client.js';
+import { AirLLMBridge } from './llm/airllm-bridge.js';
 import { SYSTEM_PROMPT_AGENT } from './llm/prompts.js';
 import { logger } from './utils/logger.js';
-import { config, llmConfig, paths } from './utils/config.js';
+import { config, llmConfig, airllmConfig, paths } from './utils/config.js';
 import { ChatMessage } from './types/index.js';
 import { JokerAgent, getAgent, AgentState, getMemory } from './agents/index.js';
 import { ReconPipeline } from './tools/recon.js';
@@ -26,6 +27,7 @@ class TheJoker {
   private systemPrompt: string;
   private agentMode: boolean = true; // Use autonomous agent by default
   private dashboardMode: boolean = false; // TUI dashboard mode
+  private airllmBridge: AirLLMBridge | null = null; // AirLLM sidecar bridge
 
   constructor() {
     this.terminal = terminal;
@@ -42,30 +44,74 @@ class TheJoker {
     });
   }
 
+  private static readonly VERSION = '1.1.1';
+  private activeBackend: 'lmstudio' | 'airllm' = 'lmstudio';
+
   /**
    * Initialize the application
    */
   async initialize(): Promise<boolean> {
     logger.info('Initializing The Joker...');
 
-    // Show banner
-    this.terminal.showBanner();
+    // Show initial banner (generic)
+    this.terminal.showBanner(TheJoker.VERSION, '...', 'Initializing');
 
-    // Test LLM connection
-    this.terminal.startSpinner('Connecting to LM Studio...');
+    // ── Backend selection ────────────────────────────────────
+    this.terminal.print('\n🎭 Choose your LLM backend:\n', 'primary');
+    this.terminal.print('  1. LM Studio  — Local inference (default)', 'info');
+    this.terminal.print('  2. AirLLM     — 70B models on 4GB RAM (requires Python)\n', 'info');
 
+    const backendChoice = await this.terminal.select<string>(
+      'Select backend',
+      ['LM Studio (default)', 'AirLLM (70B on 4GB RAM)'],
+    );
+
+    const useAirLLM = backendChoice.startsWith('AirLLM');
+    let activeModel = llmConfig.model;
+    let activeBackendLabel = 'LM Studio';
+
+    if (useAirLLM) {
+      // ── Start AirLLM sidecar ─────────────────────────────
+      this.terminal.print('\n⚡ Starting AirLLM sidecar server...', 'warning');
+      this.terminal.print('⚠️  First run will download the model — this can take a while.', 'warning');
+      this.terminal.print('⚠️  Each response may take 30-120 seconds on CPU.\n', 'warning');
+
+      try {
+        this.airllmBridge = new AirLLMBridge();
+        await this.airllmBridge.start();
+
+        // Switch LLM client to the AirLLM-proxied client
+        this.llmClient = this.airllmBridge.getClient();
+        this.activeBackend = 'airllm';
+        activeModel = airllmConfig.model;
+        activeBackendLabel = 'AirLLM';
+
+        this.terminal.spinnerSuccess('AirLLM sidecar started');
+      } catch (error) {
+        const err = error as Error;
+        this.terminal.print(`\n❌ Failed to start AirLLM: ${err.message}`, 'error');
+        this.terminal.print('Falling back to LM Studio backend.\n', 'warning');
+      }
+    }
+
+    // ── Connect to the chosen backend ────────────────────────
+    this.terminal.startSpinner(`Connecting to ${activeBackendLabel}...`);
     const connected = await this.llmClient.testConnection();
 
     if (!connected) {
-      this.terminal.spinnerFail('Failed to connect to LM Studio');
-      this.terminal.print(`\nMake sure LM Studio is running at ${llmConfig.baseUrl}`, 'warning');
-      this.terminal.print('and has a model loaded (qwen2.5-coder-14b-instruct-uncensored)', 'warning');
+      this.terminal.spinnerFail(`Failed to connect to ${activeBackendLabel}`);
+      if (this.activeBackend === 'lmstudio') {
+        this.terminal.print(`\nMake sure LM Studio is running at ${llmConfig.baseUrl}`, 'warning');
+        this.terminal.print(`and has a model loaded (${llmConfig.model})`, 'warning');
+      } else {
+        this.terminal.print('\nMake sure the AirLLM sidecar started successfully.', 'warning');
+      }
       return false;
     }
 
-    this.terminal.spinnerSuccess('Connected to LM Studio');
+    this.terminal.spinnerSuccess(`Connected to ${activeBackendLabel}`);
 
-    // Initialize the autonomous agent
+    // ── Initialize agent ─────────────────────────────────────
     this.terminal.startSpinner('Initializing agent...');
     try {
       this.agent = getAgent(this.llmClient, {
@@ -75,19 +121,19 @@ class TheJoker {
         verboseMode: false,
       });
 
-      // Set up agent event handlers
       this.setupAgentEvents();
-
       this.terminal.spinnerSuccess('Agent initialized');
     } catch (error) {
       this.terminal.spinnerFail('Failed to initialize agent');
       logger.error('Agent initialization failed', { error });
-      this.agentMode = false; // Fall back to simple mode
+      this.agentMode = false;
     }
 
-    // Display configuration info
-    this.terminal.print(`\nModel: ${llmConfig.model}`, 'muted');
-    this.terminal.print(`Endpoint: ${llmConfig.baseUrl}`, 'muted');
+    // ── Show banner with active config ───────────────────────
+    this.terminal.showBanner(TheJoker.VERSION, activeModel, activeBackendLabel);
+
+    this.terminal.print(`Model: ${activeModel}`, 'muted');
+    this.terminal.print(`Backend: ${activeBackendLabel}`, 'muted');
     this.terminal.print(`Mode: ${this.agentMode ? 'Autonomous Agent' : 'Simple Chat'}`, 'muted');
     this.terminal.print('\nType "help" for available commands\n', 'info');
 
@@ -590,6 +636,142 @@ class TheJoker {
         }
       },
     });
+
+    // ============================================
+    // 🧠 AirLLM Commands — 70B Models on 4GB RAM
+    // ============================================
+    commandRegistry.register({
+      name: 'airllm',
+      aliases: ['air', '70b'],
+      description: 'Switch to AirLLM backend — run 70B models on 4GB RAM',
+      category: 'tools',
+      execute: async (args) => {
+        if (this.airllmBridge?.isReady()) {
+          this.terminal.print('AirLLM is already running!', 'warning');
+          this.terminal.print(`Model: ${airllmConfig.model}`, 'muted');
+          this.terminal.print(`Sidecar PID: ${this.airllmBridge.getPid()}`, 'muted');
+          return { success: true };
+        }
+
+        this.terminal.print('\n🧠 AirLLM — 70B Parameter Models on 4GB RAM', 'info');
+        this.terminal.print('   Powered by AirLLM (Li, 2023) — layer-wise inference', 'muted');
+        this.terminal.print('   https://github.com/lyogavin/airllm/', 'muted');
+        this.terminal.print('', 'muted');
+        this.terminal.print('   ⚠️  AirLLM inference is SLOW (30-120s per response).', 'warning');
+        this.terminal.print('   The model loads one layer at a time from disk to GPU.', 'muted');
+        this.terminal.print('   This is a tradeoff: massive models on tiny hardware.', 'muted');
+        this.terminal.print('', 'muted');
+
+        const modelId = args && args.length > 0 ? args.join(' ') : airllmConfig.model;
+        this.terminal.print(`   Model: ${modelId}`, 'info');
+        this.terminal.print(`   Port: ${airllmConfig.port}`, 'muted');
+        this.terminal.print(`   Compression: ${airllmConfig.compression}`, 'muted');
+        this.terminal.print('', 'muted');
+
+        this.terminal.startSpinner('Starting AirLLM sidecar server (this may take several minutes)...');
+
+        try {
+          this.airllmBridge = new AirLLMBridge({
+            model: modelId,
+          });
+
+          // Show sidecar output in real-time
+          this.airllmBridge.on('sidecar:output', (output: string) => {
+            this.terminal.print(`   ${output}`, 'muted');
+          });
+
+          await this.airllmBridge.start();
+
+          this.terminal.spinnerSuccess('AirLLM sidecar is ready!');
+
+          // Swap the LLM client
+          this.llmClient = this.airllmBridge.getClient();
+
+          // Re-initialize agent with new client
+          this.agent = getAgent(this.llmClient as any, {
+            maxIterations: 10,
+            maxCorrections: 3,
+            enableLearning: true,
+            verboseMode: false,
+          });
+          this.setupAgentEvents();
+
+          this.terminal.print('\n✅ Switched to AirLLM backend', 'success');
+          this.terminal.print('   All queries will now use the 70B model.', 'muted');
+          this.terminal.print('   Type "airllm-stop" to revert to LM Studio.\n', 'muted');
+
+          return { success: true };
+        } catch (error) {
+          this.terminal.spinnerFail('Failed to start AirLLM sidecar');
+          const err = error as Error;
+          this.terminal.print(`\n❌ ${err.message}`, 'error');
+          this.terminal.print('\nTroubleshooting:', 'warning');
+          this.terminal.print('   1. Make sure Python 3.9+ is installed: python --version', 'muted');
+          this.terminal.print('   2. Install deps: pip install -r requirements-airllm.txt', 'muted');
+          this.terminal.print('   3. Ensure you have enough disk space (~40GB for 70B models)', 'muted');
+          logger.error('AirLLM start failed', { error: err.message });
+          this.airllmBridge = null;
+          return { success: false };
+        }
+      },
+    });
+
+    commandRegistry.register({
+      name: 'airllm-stop',
+      aliases: ['air-stop'],
+      description: 'Stop AirLLM sidecar and revert to LM Studio',
+      category: 'tools',
+      execute: async () => {
+        if (!this.airllmBridge?.isReady()) {
+          this.terminal.print('AirLLM is not running', 'warning');
+          return { success: false };
+        }
+
+        this.airllmBridge.stop();
+        this.airllmBridge = null;
+
+        // Revert to LM Studio client
+        this.llmClient = lmStudioClient;
+
+        // Re-initialize agent with LM Studio
+        this.agent = getAgent(this.llmClient as any, {
+          maxIterations: 10,
+          maxCorrections: 3,
+          enableLearning: true,
+          verboseMode: false,
+        });
+        this.setupAgentEvents();
+
+        this.terminal.print('🛑 AirLLM sidecar stopped', 'success');
+        this.terminal.print('   Reverted to LM Studio backend.\n', 'muted');
+        return { success: true };
+      },
+    });
+
+    commandRegistry.register({
+      name: 'airllm-status',
+      aliases: ['air-status'],
+      description: 'Show AirLLM sidecar status',
+      category: 'tools',
+      execute: async () => {
+        if (!this.airllmBridge?.isReady()) {
+          this.terminal.print('AirLLM is not running', 'muted');
+          this.terminal.print('Start with: airllm [model-name]', 'muted');
+          return { success: true };
+        }
+
+        const cfg = this.airllmBridge.getConfig();
+        display.box('AirLLM Status', [
+          `Status: ✅ Running`,
+          `PID: ${this.airllmBridge.getPid()}`,
+          `Model: ${cfg.model}`,
+          `Endpoint: ${this.airllmBridge.getBaseUrl()}`,
+          `Compression: ${cfg.compression}`,
+          `Max Length: ${cfg.maxLength}`,
+        ].join('\n'));
+        return { success: true };
+      },
+    });
   }
 
   /**
@@ -599,6 +781,12 @@ class TheJoker {
     // Persist agent memory
     const memory = getMemory();
     memory.persist();
+
+    // Stop AirLLM sidecar if running
+    if (this.airllmBridge) {
+      this.airllmBridge.destroy();
+      this.airllmBridge = null;
+    }
 
     // Cancel any running agent operations
     if (this.agent) {

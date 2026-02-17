@@ -1,0 +1,75 @@
+# Dependencies
+node_modules/
+package-lock.json
+
+# Build output (rebuilt in Docker)
+dist/
+build/
+*.tsbuildinfo
+
+# Environment files (mounted at runtime)
+.env
+.env.local
+.env.*.local
+
+# Logs and runtime data
+logs/
+*.log
+npm-debug.log*
+
+# IDE and editors
+.idea/
+.vscode/
+.github/
+.codacy/
+*.swp
+*.swo
+*~
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Testing (not needed in production)
+tests/
+coverage/
+.nyc_output/
+jest.config.js
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+*.temp
+
+# Git
+.git/
+.gitignore
+
+# Python virtual env
+.venv/
+__pycache__/
+
+# Project output (mounted as volume)
+projects/
+reports/
+
+# Documentation (not needed in image)
+*.md
+!README.md
+LICENSE
+CONTRIBUTING.md
+DOCUMENTATION.md
+IMPLEMENTATION_COMPLETE.md
+SECURITY.md
+progress.md
+
+# Browser data
+.chrome-user-data/
+
+# Misc
+*.bak
+*.backup
+Dockerfile
+docker-compose.yml
+.dockerignore

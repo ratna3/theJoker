@@ -5,7 +5,8 @@
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.9-3178C6?style=for-the-badge&logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
 [![Node.js](https://img.shields.io/badge/Node.js-20+-339933?style=for-the-badge&logo=node.js&logoColor=white)](https://nodejs.org/)
 [![LM Studio](https://img.shields.io/badge/LM%20Studio-Compatible-8B5CF6?style=for-the-badge&logo=data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCI+PC9zdmc+)](https://lmstudio.ai/)
-[![Tests](https://img.shields.io/badge/Tests-966%20Passing-22C55E?style=for-the-badge&logo=jest&logoColor=white)]()
+[![Tests](https://img.shields.io/badge/Tests-980%20Passing-22C55E?style=for-the-badge&logo=jest&logoColor=white)]()
+[![Docker](https://img.shields.io/badge/Docker-Ready-2496ED?style=for-the-badge&logo=docker&logoColor=white)]()
 [![Coverage](https://img.shields.io/badge/Coverage-80%25+-10B981?style=for-the-badge&logo=codecov&logoColor=white)]()
 [![License](https://img.shields.io/badge/License-TJCL-F59E0B?style=for-the-badge)](LICENSE)
 
@@ -20,7 +21,7 @@
 
 **An autonomous AI-powered terminal that understands natural language queries, scrapes the web intelligently, generates complete projects, and deploys applications — with built-in OSINT reconnaissance, vibe coding, and a real-time TUI dashboard.**
 
-*Powered by LM Studio's `qwen2.5-coder-14b-instruct-uncensored` model*
+*Powered by LM Studio • AirLLM for 70B on 4GB RAM*
 
 </div>
 
@@ -29,11 +30,13 @@
 ## 📖 Table of Contents
 
 - [Features](#-features)
-- [What's New](#-whats-new)
+- [What's New in v1.1.1](#-whats-new-in-v111)
 - [Quick Start](#-quick-start)
+- [Docker](#-docker)
 - [Installation](#-installation)
 - [Configuration](#-configuration)
 - [Usage](#-usage)
+- [AirLLM — 70B on 4GB RAM](#-airllm--70b-models-on-4gb-ram)
 - [Architecture](#-architecture)
 - [Built-in Commands](#-built-in-commands)
 - [Available Tools](#-available-tools)
@@ -58,11 +61,42 @@
 | **💾 Memory** | Persistent context across sessions with intelligent summarization |
 | **🎨 CLI** | Beautiful terminal UI with rich formatting and progress indicators |
 | **🔄 Error Handling** | Retry logic, circuit breakers, and graceful degradation |
-| **🧪 Testing** | 966 tests with 80%+ coverage across 22 test suites |
+| **🧪 Testing** | 980 tests with 80%+ coverage across 22 test suites |
+| **🧠 AirLLM** | Run 70B-parameter models on 4GB RAM via layer-wise inference |
+| **🐳 Docker** | Production-ready Docker setup with Compose support |
 
 ---
 
-## 🆕 What's New
+## 🆕 What's New in v1.1.1
+
+### 🎭 Backend Selection — *Choose Your LLM at Startup*
+
+The Joker now prompts you to select your LLM backend at startup:
+
+```
+🎭 Choose your LLM backend:
+  1. LM Studio  — Local inference (default)
+  2. AirLLM     — 70B models on 4GB RAM (requires Python)
+
+? Select backend ❯ LM Studio (default)
+```
+
+The banner dynamically displays the active model and backend:
+
+```
+║  v1.1.1 • Agentic Terminal • Web Scraping • Autonomous Coding     ║
+║  Backend: LM Studio | Model: qwen2.5-coder-14b-instruct-uncensored  ║
+```
+
+### 🐳 Docker Support
+
+Full Docker setup with `docker run` and `docker-compose`. See [Docker](#-docker) section below.
+
+### 🔧 Command Dispatch Fix
+
+All registered commands (`airllm`, `vibe`, `recon`, `tui`, etc.) now work correctly from the terminal prompt. Previously, these were treated as natural language queries instead of commands.
+
+---
 
 ### 🎨 Vibe Coding Mode — *Natural Language → Running App*
 
@@ -169,6 +203,55 @@ cp .env.example .env
 npm run build
 npm start
 ```
+
+---
+
+## 🐳 Docker
+
+### Quick Run
+
+```bash
+# Build the image
+docker build -t thejoker .
+
+# Run interactively (required — The Joker is a terminal app)
+docker run -it --rm \
+  --env-file .env \
+  -v ./projects:/app/projects \
+  -v ./reports:/app/reports \
+  --add-host=host.docker.internal:host-gateway \
+  thejoker
+```
+
+> **Important:** Use `host.docker.internal` as your `LM_STUDIO_BASE_URL` in `.env` so the container can reach LM Studio running on your host machine:
+> ```env
+> LM_STUDIO_BASE_URL=http://host.docker.internal:1234
+> ```
+
+### Docker Compose
+
+```bash
+# Start
+docker compose up -d
+
+# Attach to interactive terminal
+docker attach thejoker
+
+# Stop
+docker compose down
+```
+
+### Docker Compose with Build
+
+```bash
+docker compose up --build -d
+```
+
+The `docker-compose.yml` includes:
+- Volume mounts for `projects/`, `reports/`, `logs/`, `.joker_memory/`
+- Host networking (`host.docker.internal`) for LM Studio access
+- Puppeteer security configuration
+- AirLLM sidecar port (`8899`) exposed
 
 ---
 
@@ -399,6 +482,9 @@ theJoker/
 | **`vibe-stop`** | `stop-dev` | **Stop the running vibe coding dev server** |
 | **`recon`** | `scan`, `osint`, `investigate` | **Run passive recon on a domain** |
 | **`tui`** | `dashboard`, `ui` | **Toggle interactive TUI dashboard** |
+| **`airllm`** | `air`, `70b` | **Switch to AirLLM backend (70B on 4GB RAM)** |
+| **`airllm-stop`** | `air-stop` | **Stop AirLLM sidecar, revert to LM Studio** |
+| **`airllm-status`** | `air-status` | **Show AirLLM sidecar status** |
 
 ---
 
@@ -449,6 +535,49 @@ Pipeline:
   5. Dev server launch + browser open
   6. Live session refinement via HMR
 ```
+
+---
+
+## 🧠 AirLLM — 70B Models on 4GB RAM
+
+The Joker supports [AirLLM](https://github.com/lyogavin/airllm/) for running **70B-parameter models on as little as 4GB of GPU RAM** using layer-wise inference.
+
+> **Citation:** Li, G. (2023). *AirLLM: scaling large language models on low-end commodity computers* [Computer software]. https://github.com/lyogavin/airllm/
+
+### Prerequisites
+
+- **Python 3.9+** installed and accessible via `python`
+- GPU with at least 4GB VRAM (or CPU-only with patience)
+- ~40GB disk space for 70B model download
+
+### Setup
+
+```bash
+pip install -r requirements-airllm.txt
+```
+
+### Usage
+
+From inside The Joker terminal:
+
+```
+🃏 Joker > airllm
+🃏 Joker > airllm meta-llama/Llama-2-70b-chat-hf
+🃏 Joker > airllm-status
+🃏 Joker > airllm-stop
+```
+
+### Configuration
+
+```env
+AIRLLM_MODEL=garage-bAInd/Platypus2-70B-instruct
+AIRLLM_PORT=8899
+AIRLLM_MAX_LENGTH=512
+AIRLLM_COMPRESSION=none    # none | 4bit | 8bit
+AIRLLM_PYTHON_PATH=python
+```
+
+> ⚠️ AirLLM inference is slow (30–120s per response) — each layer loads from disk to GPU one at a time.
 
 ---
 
@@ -512,7 +641,7 @@ npm run test:watch
 | Error Handling | 70+ | ✅ Passing |
 | Project Management | 100+ | ✅ Passing |
 | Utilities | 150+ | ✅ Passing |
-| **Total** | **966** | **✅ All Passing** |
+| **Total** | **980** | **✅ All Passing** |
 
 ---
 
@@ -586,11 +715,27 @@ See the [LICENSE](LICENSE) file for details.
 | [dns2](https://github.com/song940/node-dns) | DNS lookups for Recon | MIT |
 | [Jest](https://jestjs.io/) | Testing | MIT |
 | [TypeScript](https://www.typescriptlang.org/) | Type safety | Apache-2.0 |
+| [AirLLM](https://github.com/lyogavin/airllm/) | 70B models on 4GB RAM | Apache-2.0 |
 
 ### Special Thanks
 
 - [LM Studio](https://lmstudio.ai/) for local LLM inference
+- [AirLLM](https://github.com/lyogavin/airllm/) by Gavin Li for enabling 70B models on 4GB RAM
 - The open source community for their amazing tools and libraries
+
+### Citation
+
+If you use The Joker's AirLLM integration in your research, please cite:
+
+```bibtex
+@software{airllm2023,
+  author = {Gavin Li},
+  title = {AirLLM: scaling large language models on low-end commodity computers},
+  url = {https://github.com/lyogavin/airllm/},
+  version = {0.0},
+  year = {2023},
+}
+```
 
 ---
 
@@ -613,6 +758,6 @@ See the [LICENSE](LICENSE) file for details.
 
 **Made with ❤️ by Ratna Kirti**
 
-**🃏 The Joker - Agentic Terminal v1.1.0**
+**🃏 The Joker - Agentic Terminal v1.1.1**
 
 </div>
