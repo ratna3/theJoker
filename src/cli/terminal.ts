@@ -10,6 +10,7 @@ import { EventEmitter } from 'events';
 import readline from 'readline';
 import { logger } from '../utils/logger.js';
 import { terminalConfig } from '../utils/config.js';
+import { commandRegistry } from './commands.js';
 
 /**
  * Terminal color theme - exported for use by other modules
@@ -28,9 +29,10 @@ export const theme = {
 };
 
 /**
- * ASCII Art Banner for The Joker
+ * Generate ASCII Art Banner for The Joker (dynamic)
  */
-const BANNER = `
+function generateBanner(version: string, modelName: string, backend: string): string {
+  return `
 ${theme.primary('╔════════════════════════════════════════════════════════════════════╗')}
 ${theme.primary('║')}                                                                    ${theme.primary('║')}
 ${theme.primary('║')}  ${theme.secondary('████████╗██╗  ██╗███████╗     ██╗ ██████╗ ██╗  ██╗███████╗██████╗ ')} ${theme.primary('║')}
@@ -40,11 +42,12 @@ ${theme.primary('║')}  ${theme.secondary('   ██║   ██╔══██
 ${theme.primary('║')}  ${theme.secondary('   ██║   ██║  ██║███████╗╚█████╔╝╚██████╔╝██║  ██╗███████╗██║  ██║')} ${theme.primary('║')}
 ${theme.primary('║')}  ${theme.secondary('   ╚═╝   ╚═╝  ╚═╝╚══════╝ ╚════╝  ╚═════╝ ╚═╝  ╚═╝╚══════╝╚═╝  ╚═╝')} ${theme.primary('║')}
 ${theme.primary('║')}                                                                    ${theme.primary('║')}
-${theme.primary('║')}  ${theme.accent('Agentic Terminal • Web Scraping • Autonomous Coding')}               ${theme.primary('║')}
-${theme.primary('║')}  ${theme.muted('Powered by LM Studio | qwen2.5-coder-14b-instruct-uncensored')}      ${theme.primary('║')}
+${theme.primary('║')}  ${theme.accent(`v${version} • Agentic Terminal • Web Scraping • Autonomous Coding`)}     ${theme.primary('║')}
+${theme.primary('║')}  ${theme.muted(`Backend: ${backend} | Model: ${modelName}`.padEnd(62))}  ${theme.primary('║')}
 ${theme.primary('║')}                                                                    ${theme.primary('║')}
 ${theme.primary('╚════════════════════════════════════════════════════════════════════╝')}
 `;
+}
 
 /**
  * Terminal command history
@@ -72,9 +75,9 @@ export class Terminal extends EventEmitter {
   /**
    * Display the banner
    */
-  showBanner(): void {
+  showBanner(version = '1.1.1', modelName = 'unknown', backend = 'LM Studio'): void {
     console.clear();
-    console.log(BANNER);
+    console.log(generateBanner(version, modelName, backend));
     console.log();
   }
 
@@ -255,7 +258,7 @@ export class Terminal extends EventEmitter {
     const askQuestion = (): void => {
       this.rl?.question(promptText, async (input) => {
         const trimmedInput = input.trim();
-        
+
         if (!trimmedInput) {
           askQuestion();
           return;
@@ -264,13 +267,27 @@ export class Terminal extends EventEmitter {
         // Add to history
         this.addToHistory(trimmedInput);
 
-        // Handle built-in commands
-        if (await this.handleBuiltInCommand(trimmedInput)) {
+        // Check CommandRegistry for ALL registered commands
+        const { command } = commandRegistry.parse(trimmedInput);
+        if (commandRegistry.has(command)) {
+          try {
+            const result = await commandRegistry.execute(trimmedInput);
+            if (result.output) {
+              console.log(result.output);
+            }
+            if (result.error) {
+              this.print(result.error, 'error');
+            }
+          } catch (error) {
+            const err = error as Error;
+            this.print(`Command error: ${err.message}`, 'error');
+          }
+          console.log();
           askQuestion();
           return;
         }
 
-        // Process user input
+        // Not a command — process as agent/LLM input
         this.isProcessing = true;
         try {
           await onInput(trimmedInput);
@@ -280,7 +297,7 @@ export class Terminal extends EventEmitter {
           logger.error('REPL error', { error: err.message, stack: err.stack });
         }
         this.isProcessing = false;
-        
+
         console.log();
         askQuestion();
       });
@@ -297,33 +314,54 @@ export class Terminal extends EventEmitter {
   }
 
   /**
-   * Handle built-in terminal commands
+   * Show dynamic help — pulls all commands from CommandRegistry
    */
-  private async handleBuiltInCommand(input: string): Promise<boolean> {
-    const command = input.toLowerCase();
+  showHelp(): void {
+    this.header('The Joker v1.1.1 — Help');
 
-    switch (command) {
-      case 'help':
-        this.showHelp();
-        return true;
-      case 'clear':
-      case 'cls':
-        console.clear();
-        return true;
-      case 'history':
-        this.showHistory();
-        return true;
-      case 'exit':
-      case 'quit':
-      case 'q':
-        this.rl?.close();
-        return true;
-      case 'banner':
-        this.showBanner();
-        return true;
-      default:
-        return false;
+    const commands = commandRegistry.getAll();
+
+    // Group by category
+    const categories: Record<string, typeof commands> = {};
+    for (const cmd of commands) {
+      const cat = cmd.category || 'general';
+      if (!categories[cat]) categories[cat] = [];
+      categories[cat].push(cmd);
     }
+
+    const categoryLabels: Record<string, string> = {
+      general: '📋 General',
+      agent: '🤖 Agent',
+      tools: '🔧 Tools',
+      config: '⚙️  Config',
+      navigation: '🧭 Navigation',
+      debug: '🐛 Debug',
+    };
+
+    const categoryOrder = ['general', 'agent', 'tools', 'config', 'navigation', 'debug'];
+
+    for (const catKey of categoryOrder) {
+      const cmds = categories[catKey];
+      if (!cmds || cmds.length === 0) continue;
+
+      const label = categoryLabels[catKey] || catKey;
+      console.log(theme.accent(`\n${label}:`));
+
+      for (const cmd of cmds) {
+        const aliases = cmd.aliases && cmd.aliases.length > 0
+          ? theme.muted(` (${cmd.aliases.join(', ')})`)
+          : '';
+        const name = cmd.name.padEnd(16);
+        console.log(`  ${theme.primary('•')} ${theme.white(name)} ${theme.muted('—')} ${theme.muted(cmd.description)}${aliases}`);
+      }
+    }
+
+    console.log(theme.accent('\n💡 Examples:'));
+    console.log(theme.muted('    • vibe Build me a portfolio website with dark mode'));
+    console.log(theme.muted('    • recon example.com'));
+    console.log(theme.muted('    • airllm'));
+    console.log(theme.muted('    • Tell me about quantum computing'));
+    console.log();
   }
 
   /**
@@ -342,7 +380,7 @@ export class Terminal extends EventEmitter {
   /**
    * Show command history
    */
-  private showHistory(): void {
+  showHistory(): void {
     this.header('Command History');
     if (this.history.commands.length === 0) {
       this.print('No commands in history', 'muted');
@@ -354,42 +392,6 @@ export class Terminal extends EventEmitter {
   }
 
   /**
-   * Show help information
-   */
-  private showHelp(): void {
-    this.header('The Joker - Help');
-    
-    console.log(theme.accent('\n📋 Commands:'));
-    this.list([
-      'help     - Show this help message',
-      'clear    - Clear the terminal',
-      'history  - Show command history',
-      'banner   - Show the banner',
-      'exit     - Exit the terminal',
-    ]);
-
-    console.log(theme.accent('\n🕸️ Web Scraping:'));
-    this.list([
-      'scrape <url>           - Scrape a webpage',
-      'search <query>         - Search the web',
-      'extract <url> <data>   - Extract specific data',
-    ]);
-
-    console.log(theme.accent('\n💻 Coding Agent:'));
-    this.list([
-      'create <project-desc>  - Create a new project',
-      'generate <component>   - Generate code component',
-      'modify <file> <change> - Modify existing file',
-    ]);
-
-    console.log(theme.accent('\n💡 Examples:'));
-    console.log(theme.muted('  • "scrape https://example.com and extract all links"'));
-    console.log(theme.muted('  • "create a Next.js app with Tailwind and auth"'));
-    console.log(theme.muted('  • "generate a React component for a todo list"'));
-    console.log();
-  }
-
-  /**
    * Display a progress bar
    */
   progressBar(current: number, total: number, label = ''): void {
@@ -397,9 +399,9 @@ export class Terminal extends EventEmitter {
     const progress = Math.round((current / total) * width);
     const bar = '█'.repeat(progress) + '░'.repeat(width - progress);
     const percent = Math.round((current / total) * 100);
-    
+
     process.stdout.write(`\r${theme.primary(bar)} ${percent}% ${theme.muted(label)}`);
-    
+
     if (current === total) {
       console.log();
     }

@@ -87,12 +87,21 @@ export {
   analyzeCodeTool,
 } from './code';
 
+// Recon tools
+export {
+  ReconPipeline,
+  registerReconTools,
+  domainRecon,
+  domainReconTool,
+} from './recon';
+
 import { logger } from '../utils/logger';
 import { registerSearchTools } from './search';
 import { registerScrapeTools } from './scrape';
 import { registerProcessTools } from './process';
 import { registerFileTools } from './file';
 import { registerCodeTools } from './code';
+import { registerReconTools } from './recon';
 import { Tool, toolRegistry } from './registry';
 
 /**
@@ -100,23 +109,24 @@ import { Tool, toolRegistry } from './registry';
  */
 export function initializeAllTools(): void {
   logger.info('Initializing all tools...');
-  
+
   registerSearchTools();
   registerScrapeTools();
   registerProcessTools();
   registerFileTools();
   registerCodeTools();
-  
+  registerReconTools();
+
   const tools = toolRegistry.getAll();
   logger.info(`✅ Initialized ${tools.length} tools across all categories`);
-  
+
   // Log tool summary by category
   const categories = new Map<string, number>();
   for (const tool of tools) {
     const count = categories.get(tool.category) || 0;
     categories.set(tool.category, count + 1);
   }
-  
+
   for (const [category, count] of categories) {
     logger.info(`   📦 ${category}: ${count} tools`);
   }

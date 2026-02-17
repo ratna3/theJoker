@@ -28,20 +28,32 @@ export { ProgressTracker, progressTracker };
 export type { StepStatus, ProgressStep, ProgressConfig, ProgressSummary } from './progress.js';
 
 // Result formatting (Phase 8)
-import { 
-  ResultFormatter, 
-  formatAsList, 
-  formatAsTable, 
-  formatAsCards, 
-  formatAsMarkdown 
+import {
+  ResultFormatter,
+  formatAsList,
+  formatAsTable,
+  formatAsCards,
+  formatAsMarkdown
 } from './formatter.js';
 export { ResultFormatter, formatAsList, formatAsTable, formatAsCards, formatAsMarkdown };
-export type { 
-  FormattedItem, 
-  FormattedResult, 
-  TableColumn, 
-  FormatterOptions 
+export type {
+  FormattedItem,
+  FormattedResult,
+  TableColumn,
+  FormatterOptions
 } from './formatter.js';
+
+// Interactive TUI Dashboard
+import { JokerDashboard, jokerDashboard } from './dashboard.js';
+export { JokerDashboard, jokerDashboard };
+export type {
+  DashboardStats,
+  DashboardThought,
+  DashboardStepInfo,
+  DashboardStepResult,
+  DashboardPlan,
+  DashboardCorrection,
+} from './dashboard.js';
 
 /**
  * Initialize all CLI components
@@ -50,7 +62,7 @@ export async function initializeCLI(): Promise<void> {
   // Terminal is auto-initialized
   // Command registry is auto-initialized with built-in commands
   // Display and Progress are ready to use
-  
+
   // Any additional initialization can be added here
   console.log('CLI components initialized');
 }

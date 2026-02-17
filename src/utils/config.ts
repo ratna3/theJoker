@@ -5,7 +5,7 @@
 
 import dotenv from 'dotenv';
 import path from 'path';
-import { AppConfig, LLMConfig, AgentConfig, ScraperConfig, TerminalConfig, LogConfig } from '../types';
+import { AppConfig, LLMConfig, AgentConfig, ScraperConfig, TerminalConfig, LogConfig, AirLLMConfig } from '../types';
 
 // Load environment variables
 dotenv.config();
@@ -38,7 +38,7 @@ function getEnvBool(key: string, fallback: boolean): boolean {
  * LLM Configuration
  */
 export const llmConfig: LLMConfig = {
-  baseUrl: getEnv('LM_STUDIO_BASE_URL', 'http://192.168.56.1:1234'),
+  baseUrl: getEnv('LM_STUDIO_BASE_URL', 'http://localhost:1234'),
   model: getEnv('LM_STUDIO_MODEL', 'qwen2.5-coder-14b-instruct-uncensored'),
   apiKey: getEnv('LM_STUDIO_API_KEY', 'not-needed'),
   temperature: 0.7,
@@ -87,6 +87,24 @@ export const logConfig: LogConfig = {
 };
 
 /**
+ * AirLLM Configuration
+ * Enables 70B-parameter model inference on 4GB RAM via layer-wise loading.
+ *
+ * Citation:
+ *   Li, G. (2023). AirLLM: scaling large language models on low-end
+ *   commodity computers [Computer software].
+ *   https://github.com/lyogavin/airllm/
+ */
+export const airllmConfig: AirLLMConfig = {
+  enabled: getEnvBool('AIRLLM_ENABLED', false),
+  model: getEnv('AIRLLM_MODEL', 'garage-bAInd/Platypus2-70B-instruct'),
+  port: getEnvNumber('AIRLLM_PORT', 8899),
+  maxLength: getEnvNumber('AIRLLM_MAX_LENGTH', 512),
+  compression: getEnv('AIRLLM_COMPRESSION', 'none') as AirLLMConfig['compression'],
+  pythonPath: getEnv('AIRLLM_PYTHON_PATH', 'python'),
+};
+
+/**
  * Complete Application Configuration
  */
 export const config: AppConfig = {
@@ -95,6 +113,7 @@ export const config: AppConfig = {
   scraper: scraperConfig,
   terminal: terminalConfig,
   log: logConfig,
+  airllm: airllmConfig,
 };
 
 /**

@@ -65,13 +65,13 @@ export class CommandRegistry extends EventEmitter {
    */
   register(command: Command): void {
     this.commands.set(command.name, command);
-    
+
     if (command.aliases) {
       for (const alias of command.aliases) {
         this.aliases.set(alias, command.name);
       }
     }
-    
+
     this.emit('command:registered', command);
   }
 
@@ -81,15 +81,15 @@ export class CommandRegistry extends EventEmitter {
   unregister(name: string): boolean {
     const command = this.commands.get(name);
     if (!command) return false;
-    
+
     this.commands.delete(name);
-    
+
     if (command.aliases) {
       for (const alias of command.aliases) {
         this.aliases.delete(alias);
       }
     }
-    
+
     this.emit('command:unregistered', command);
     return true;
   }
@@ -131,10 +131,10 @@ export class CommandRegistry extends EventEmitter {
     const command = parts[0]?.toLowerCase() || '';
     const args: string[] = [];
     const flags: Record<string, string | boolean> = {};
-    
+
     for (let i = 1; i < parts.length; i++) {
       const part = parts[i];
-      
+
       if (part.startsWith('--')) {
         // Long flag: --flag or --flag=value
         const [key, value] = part.slice(2).split('=');
@@ -153,7 +153,7 @@ export class CommandRegistry extends EventEmitter {
         args.push(part);
       }
     }
-    
+
     return { command, args, flags };
   }
 
@@ -162,24 +162,24 @@ export class CommandRegistry extends EventEmitter {
    */
   async execute(input: string): Promise<CommandResult> {
     const trimmedInput = input.trim();
-    
+
     if (!trimmedInput) {
       return { success: true };
     }
-    
+
     // Add to history
     this.addToHistory(trimmedInput);
-    
+
     const { command, args, flags } = this.parse(trimmedInput);
     const cmd = this.get(command);
-    
+
     if (!cmd) {
       return {
         success: false,
         error: `Unknown command: "${command}". Type "help" for available commands.`
       };
     }
-    
+
     const context: CommandContext = {
       rawInput: trimmedInput,
       args,
@@ -187,9 +187,9 @@ export class CommandRegistry extends EventEmitter {
       terminal,
       display
     };
-    
+
     this.emit('command:before', { command: cmd, context });
-    
+
     try {
       const result = await cmd.execute(args, context);
       this.emit('command:after', { command: cmd, context, result });
@@ -279,24 +279,24 @@ export class CommandRegistry extends EventEmitter {
               theme.secondary(cmd.description),
               ''
             ];
-            
+
             if (cmd.usage) {
               output.push(theme.muted('Usage: ') + theme.primary(cmd.usage));
             }
-            
+
             if (cmd.aliases && cmd.aliases.length > 0) {
               output.push(theme.muted('Aliases: ') + theme.secondary(cmd.aliases.join(', ')));
             }
-            
+
             output.push(theme.muted('Category: ') + theme.secondary(cmd.category));
             output.push('');
-            
+
             return { success: true, output: output.join('\n') };
           } else {
             return { success: false, error: `Unknown command: ${args[0]}` };
           }
         }
-        
+
         // Show all commands grouped by category
         const categories: CommandCategory[] = ['general', 'navigation', 'tools', 'config', 'debug'];
         const output: string[] = [
@@ -308,14 +308,14 @@ export class CommandRegistry extends EventEmitter {
           ], 'Help', 'accent'),
           ''
         ];
-        
+
         for (const category of categories) {
           const cmds = this.getByCategory(category);
           if (cmds.length === 0) continue;
-          
+
           output.push(theme.accent(`\n  ${category.toUpperCase()}`));
           output.push(theme.muted('  ' + '─'.repeat(38)));
-          
+
           for (const cmd of cmds) {
             const aliases = cmd.aliases ? ` (${cmd.aliases.join(', ')})` : '';
             output.push(
@@ -325,7 +325,7 @@ export class CommandRegistry extends EventEmitter {
             );
           }
         }
-        
+
         output.push('');
         return { success: true, output: output.join('\n') };
       }
@@ -352,6 +352,7 @@ export class CommandRegistry extends EventEmitter {
       category: 'general',
       execute: async () => {
         console.log(theme.muted('\nGoodbye! 🃏\n'));
+        process.exit(0);
         return { success: true, exitCode: 0 };
       }
     });
@@ -368,25 +369,25 @@ export class CommandRegistry extends EventEmitter {
           this.clearHistory();
           return { success: true, output: ctx.display.success('History cleared') };
         }
-        
+
         const history = this.getHistory();
         if (history.length === 0) {
           return { success: true, output: ctx.display.info('No command history') };
         }
-        
+
         const output = [
           theme.accent(`\n${ICONS.clock} Command History`),
           theme.muted('─'.repeat(40)),
           ''
         ];
-        
+
         for (let i = 0; i < history.length; i++) {
           output.push(
             theme.muted(`  ${String(i + 1).padStart(3)}  `) +
             theme.secondary(history[i])
           );
         }
-        
+
         output.push('');
         return { success: true, output: output.join('\n') };
       }
@@ -405,7 +406,7 @@ export class CommandRegistry extends EventEmitter {
           { label: 'History', value: `${this.history.length} entries`, ok: true },
           { label: 'Memory', value: `${Math.round(process.memoryUsage().heapUsed / 1024 / 1024)}MB`, ok: true }
         ];
-        
+
         const output = [
           '',
           theme.accent(`${ICONS.sparkle} System Status`),
@@ -414,7 +415,7 @@ export class CommandRegistry extends EventEmitter {
           ctx.display.status(statusItems),
           ''
         ];
-        
+
         return { success: true, output: output.join('\n') };
       }
     });
@@ -439,11 +440,11 @@ export class CommandRegistry extends EventEmitter {
       execute: async (args, ctx) => {
         const output = ctx.display.box([
           theme.primary('The Joker'),
-          theme.muted('Version: ') + theme.accent('1.0.0'),
+          theme.muted('Version: ') + theme.accent('1.1.1'),
           theme.muted('Node: ') + theme.secondary(process.version),
           theme.muted('Platform: ') + theme.secondary(process.platform)
         ], 'Version', 'primary');
-        
+
         return { success: true, output };
       }
     });

@@ -1,0 +1,20 @@
+{
+  "successfulPatterns": [],
+  "failedPatterns": [
+    {
+      "id": "pattern_1771345624491_8t10ns",
+      "query": "airllm",
+      "intent": "unknown",
+      "success": false,
+      "steps": [
+        "web_search",
+        "extract_links",
+        "scrape_page",
+        "summarize"
+      ],
+      "timestamp": "2026-02-17T16:27:04.491Z"
+    }
+  ],
+  "siteKnowledge": [],
+  "preferences": {}
+}

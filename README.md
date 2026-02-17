@@ -5,7 +5,8 @@
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.9-3178C6?style=for-the-badge&logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
 [![Node.js](https://img.shields.io/badge/Node.js-20+-339933?style=for-the-badge&logo=node.js&logoColor=white)](https://nodejs.org/)
 [![LM Studio](https://img.shields.io/badge/LM%20Studio-Compatible-8B5CF6?style=for-the-badge&logo=data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCI+PC9zdmc+)](https://lmstudio.ai/)
-[![Tests](https://img.shields.io/badge/Tests-966%20Passing-22C55E?style=for-the-badge&logo=jest&logoColor=white)]()
+[![Tests](https://img.shields.io/badge/Tests-980%20Passing-22C55E?style=for-the-badge&logo=jest&logoColor=white)]()
+[![Docker](https://img.shields.io/badge/Docker-Ready-2496ED?style=for-the-badge&logo=docker&logoColor=white)]()
 [![Coverage](https://img.shields.io/badge/Coverage-80%25+-10B981?style=for-the-badge&logo=codecov&logoColor=white)]()
 [![License](https://img.shields.io/badge/License-TJCL-F59E0B?style=for-the-badge)](LICENSE)
 
@@ -18,9 +19,9 @@
 
 <br />
 
-**An autonomous AI-powered terminal that understands natural language queries, scrapes the web intelligently, generates complete projects, and deploys applications.**
+**An autonomous AI-powered terminal that understands natural language queries, scrapes the web intelligently, generates complete projects, and deploys applications — with built-in OSINT reconnaissance, vibe coding, and a real-time TUI dashboard.**
 
-*Powered by LM Studio's `qwen2.5-coder-14b-instruct-uncensored` model*
+*Powered by LM Studio • AirLLM for 70B on 4GB RAM*
 
 </div>
 
@@ -29,10 +30,13 @@
 ## 📖 Table of Contents
 
 - [Features](#-features)
+- [What's New in v1.1.1](#-whats-new-in-v111)
 - [Quick Start](#-quick-start)
+- [Docker](#-docker)
 - [Installation](#-installation)
 - [Configuration](#-configuration)
 - [Usage](#-usage)
+- [AirLLM — 70B on 4GB RAM](#-airllm--70b-models-on-4gb-ram)
 - [Architecture](#-architecture)
 - [Built-in Commands](#-built-in-commands)
 - [Available Tools](#-available-tools)
@@ -50,11 +54,132 @@
 | **🧠 AI Agent** | Natural language understanding, autonomous task execution, self-correction |
 | **🌐 Web Scraping** | Puppeteer-based scraping with stealth mode and anti-detection |
 | **📁 Project Generation** | Create complete projects from natural language descriptions |
+| **🎨 Vibe Coding** | Describe an app in plain English → get a running project with live dev server |
+| **🔍 Hack Mode (Recon)** | One-command passive OSINT: DNS, WHOIS, SSL, tech stack, emails, social links |
+| **🖥️ TUI Dashboard** | Real-time split-pane terminal UI showing agent thinking & tool execution |
 | **🚀 Deployment** | Docker, Kubernetes, and CI/CD pipeline automation |
 | **💾 Memory** | Persistent context across sessions with intelligent summarization |
 | **🎨 CLI** | Beautiful terminal UI with rich formatting and progress indicators |
 | **🔄 Error Handling** | Retry logic, circuit breakers, and graceful degradation |
-| **🧪 Testing** | 966 tests with 80%+ coverage across 22 test suites |
+| **🧪 Testing** | 980 tests with 80%+ coverage across 22 test suites |
+| **🧠 AirLLM** | Run 70B-parameter models on 4GB RAM via layer-wise inference |
+| **🐳 Docker** | Production-ready Docker setup with Compose support |
+
+---
+
+## 🆕 What's New in v1.1.1
+
+### 🎭 Backend Selection — *Choose Your LLM at Startup*
+
+The Joker now prompts you to select your LLM backend at startup:
+
+```
+🎭 Choose your LLM backend:
+  1. LM Studio  — Local inference (default)
+  2. AirLLM     — 70B models on 4GB RAM (requires Python)
+
+? Select backend ❯ LM Studio (default)
+```
+
+The banner dynamically displays the active model and backend:
+
+```
+║  v1.1.1 • Agentic Terminal • Web Scraping • Autonomous Coding     ║
+║  Backend: LM Studio | Model: qwen2.5-coder-14b-instruct-uncensored  ║
+```
+
+### 🐳 Docker Support
+
+Full Docker setup with `docker run` and `docker-compose`. See [Docker](#-docker) section below.
+
+### 🔧 Command Dispatch Fix
+
+All registered commands (`airllm`, `vibe`, `recon`, `tui`, etc.) now work correctly from the terminal prompt. Previously, these were treated as natural language queries instead of commands.
+
+---
+
+### 🎨 Vibe Coding Mode — *Natural Language → Running App*
+
+Describe what you want, and The Joker builds it end-to-end:
+
+```
+🃏 joker > vibe Build me a portfolio website with dark mode and a contact form
+
+   🧠 Analyzing your idea...
+   📁 Scaffolding React project: portfolio-website
+   🧬 Generating 6 components, 3 pages
+   📝 Writing 9 files
+   📦 Installing dependencies...
+   🚀 Starting dev server...
+
+══════════════════════════════════════════════════
+🚀 App live at: http://localhost:3000
+📁 Project: ./projects/portfolio-website
+🧬 9 files generated
+⏱ Total: 47.3s
+══════════════════════════════════════════════════
+
+💡 Type another `vibe` prompt to refine the app, or `vibe-stop` to stop the server.
+```
+
+**Key capabilities:**
+- LLM-powered prompt analysis → structured project specification
+- Automatic framework detection (React, Next.js, Vue, Express, Node.js)
+- Full code generation for components, pages, and styles
+- Automatic `npm install` + dev server launch + browser open
+- **Live session refinement** — keep prompting to update the running app via HMR
+
+---
+
+### 🔍 Hack Mode — *Automated Recon & OSINT*
+
+One command to perform comprehensive passive reconnaissance:
+
+```
+🃏 joker > recon example.com
+
+🔍 Domain Reconnaissance: example.com
+   📡 DNS Records (A, AAAA, MX, TXT, NS, CNAME, SOA)
+   🔎 WHOIS (registrar, dates, nameservers)
+   🔐 SSL/TLS (certificate, issuer, expiry)
+   📋 HTTP Headers (security analysis, server info)
+   🏗️ Tech Stack (25+ signatures detected)
+   📧 Emails extracted from /contact, /about, /team
+   🔗 Social links (Twitter, GitHub, LinkedIn, etc.)
+   📸 Full-page screenshot
+   🛡️ Security Score: 72/100
+
+📄 Report saved: ./reports/example.com-recon.md
+```
+
+**Modules:** DNS lookups, WHOIS, SSL analysis, HTTP security headers, tech stack detection (React, Next.js, Vue, WordPress, Cloudflare, Vercel, AWS...), email extraction, social link discovery, screenshot capture, and security scoring.
+
+---
+
+### 🖥️ TUI Dashboard — *Real-Time Agent Visualization*
+
+A full-screen interactive terminal dashboard built with `blessed`:
+
+```
+┌─── 🧠 Agent Thinking ───────────────┬─── 🔄 Tool Execution ──────────────┐
+│                                      │                                     │
+│  ⚡ State: THINKING → PLANNING      │  ▶ web_search                       │
+│                                      │    query: "best restaurants 2024"   │
+│  💭 Analyzing user query...          │    ⏱ 1.2s                          │
+│                                      │    ✅ 10 results found             │
+│  📋 Plan:                            │                                     │
+│  1. Search web → extract data        │  ▶ scrape_page                      │
+│  2. Scrape top results               │    url: "yelp.com/..."             │
+│  3. Synthesize answer                │    ⏱ running...                     │
+│                                      │                                     │
+├─── 📊 Stats ─────────────────────────┴─────────────────────────────────────┤
+│  ⚡ PLANNING │ ⏱ 5m 32s │ 💬 12 msgs │ 📊 3/5 steps │ 🤖 qwen2.5-14b   │
+├─── 🃏 Input ───────────────────────────────────────────────────────────────┤
+│  > _                                                                       │
+└────────────────────────────────────────────────────────────────────────────┘
+```
+
+**Key bindings:** `Tab` (cycle panes) · `q` (quit) · `c` (clear) · `i`/`Enter` (input) · `Esc` (back)
 
 ---
 
@@ -62,7 +187,7 @@
 
 ```bash
 # Clone the repository
-git clone https://github.com/yourusername/theJoker.git
+git clone https://github.com/ratna3/theJoker.git
 cd theJoker
 
 # Install dependencies
@@ -70,14 +195,63 @@ npm install
 
 # Copy environment configuration
 cp .env.example .env
+# Edit .env with your LM Studio endpoint and model
 
-# Start LM Studio with qwen2.5-coder-14b-instruct-uncensored
-# Make sure it's running at http://xxx.xxx.xx.x:xxxx
+# Start LM Studio with your model loaded
 
 # Build and run
 npm run build
 npm start
 ```
+
+---
+
+## 🐳 Docker
+
+### Quick Run
+
+```bash
+# Build the image
+docker build -t thejoker .
+
+# Run interactively (required — The Joker is a terminal app)
+docker run -it --rm \
+  --env-file .env \
+  -v ./projects:/app/projects \
+  -v ./reports:/app/reports \
+  --add-host=host.docker.internal:host-gateway \
+  thejoker
+```
+
+> **Important:** Use `host.docker.internal` as your `LM_STUDIO_BASE_URL` in `.env` so the container can reach LM Studio running on your host machine:
+> ```env
+> LM_STUDIO_BASE_URL=http://host.docker.internal:1234
+> ```
+
+### Docker Compose
+
+```bash
+# Start
+docker compose up -d
+
+# Attach to interactive terminal
+docker attach thejoker
+
+# Stop
+docker compose down
+```
+
+### Docker Compose with Build
+
+```bash
+docker compose up --build -d
+```
+
+The `docker-compose.yml` includes:
+- Volume mounts for `projects/`, `reports/`, `logs/`, `.joker_memory/`
+- Host networking (`host.docker.internal`) for LM Studio access
+- Puppeteer security configuration
+- AirLLM sidecar port (`8899`) exposed
 
 ---
 
@@ -94,7 +268,7 @@ npm start
 
 1. **Clone the repository**
    ```bash
-   git clone https://github.com/yourusername/theJoker.git
+   git clone https://github.com/ratna3/theJoker.git
    cd theJoker
    ```
 
@@ -116,8 +290,8 @@ npm start
 
 5. **Start LM Studio**
    - Open LM Studio
-   - Load `qwen2.5-coder-14b-instruct-uncensored` (or similar model)
-   - Start the local server at `http://192.xxx.xx.x:xxxx`
+   - Load your preferred model (e.g. `qwen2.5-coder-14b-instruct-uncensored`)
+   - Start the local server
 
 6. **Run The Joker**
    ```bash
@@ -134,47 +308,21 @@ Create a `.env` file in the project root:
 
 ```env
 # LM Studio Configuration
-LM_STUDIO_ENDPOINT=http://xxx.xxx.xx.x:xxxx
+LM_STUDIO_BASE_URL=http://localhost:1234
 LM_STUDIO_MODEL=qwen2.5-coder-14b-instruct-uncensored
+LM_STUDIO_API_KEY=not-needed
 
-# LLM Settings
-LLM_TEMPERATURE=0.7
-LLM_MAX_TOKENS=4096
-LLM_TIMEOUT=60000
+# Agent Settings
+AGENT_MAX_ITERATIONS=10
+AGENT_TIMEOUT_MS=60000
+AGENT_VERBOSE=true
 
-# Puppeteer Configuration
-PUPPETEER_HEADLESS=true
-PUPPETEER_TIMEOUT=30000
+# Scraper Settings
+SCRAPER_HEADLESS=true
+SCRAPER_TIMEOUT_MS=30000
 
-# Application Settings
-DEBUG_MODE=false
+# Log Settings
 LOG_LEVEL=info
-MAX_RETRIES=3
-CACHE_TTL=300000
-```
-
-### Configuration File
-
-Additional settings can be configured in `config/default.json`:
-
-```json
-{
-  "llm": {
-    "endpoint": "http://xxx.xxx.xx.x:xxxx",
-    "model": "qwen2.5-coder-14b-instruct-uncensored",
-    "temperature": 0.7,
-    "maxTokens": 4096
-  },
-  "scraper": {
-    "headless": true,
-    "timeout": 30000,
-    "userAgentRotation": true
-  },
-  "agent": {
-    "maxIterations": 10,
-    "memoryPersistence": true
-  }
-}
 ```
 
 ---
@@ -183,47 +331,41 @@ Additional settings can be configured in `config/default.json`:
 
 ### Interactive Mode
 
-Start The Joker in interactive mode:
-
 ```bash
 npm start
 ```
 
-You'll see the welcome banner:
-
-```
-╔═══════════════════════════════════════════╗
-║                                           ║
-║   🃏  THE JOKER - Agentic Terminal  🃏     ║
-║                                           ║
-║   Powered by qwen2.5-coder-14b            ║
-║   Type your query or 'help' for commands  ║
-║                                           ║
-╚═══════════════════════════════════════════╝
-
-🃏 Joker >
-```
-
 ### Example Queries
 
-**Find Information:**
+**🌐 Web Scraping:**
 ```
-🃏 Joker > Find the top 5 programming languages in 2024
-```
-
-**Search for Places:**
-```
-🃏 Joker > Find best places to eat in Chicago
+🃏 joker > scrape https://example.com
+🃏 joker > search best programming languages 2025
+🃏 joker > Extract all links from https://github.com/trending
 ```
 
-**Scrape a Website:**
+**🎨 Vibe Coding:**
 ```
-🃏 Joker > Extract all links from https://example.com
+🃏 joker > vibe Build me a portfolio website with dark mode and a contact form
+🃏 joker > vibe Create a todo app with React and local storage
+🃏 joker > vibe Make an Express REST API with user authentication
 ```
 
-**Compare Items:**
+**🔍 Hack Mode:**
 ```
-🃏 Joker > Compare React vs Vue for web development
+🃏 joker > recon example.com
+🃏 joker > scan google.com
+```
+
+**🖥️ TUI Dashboard:**
+```
+🃏 joker > tui
+```
+
+**💬 Natural Language:**
+```
+🃏 joker > Find the top 5 programming languages in 2024
+🃏 joker > Compare React vs Vue for web development
 ```
 
 ---
@@ -241,18 +383,15 @@ You'll see the welcome banner:
 │                                                     │                           │
 │  ┌──────────────────────────────────────────────────▼─────────────────────────┐│
 │  │                          TOOL EXECUTOR                                      ││
-│  │  ┌─────────────────────────────────────────────────────────────────────┐   ││
-│  │  │  WEB SCRAPING TOOLS                                                  │   ││
-│  │  │  ┌──────────┐  ┌──────────┐  ┌──────────┐  ┌──────────┐            │   ││
-│  │  │  │   Web    │  │Puppeteer │  │   Data   │  │   Link   │            │   ││
-│  │  │  │  Search  │  │ Scraper  │  │Processor │  │Extractor │            │   ││
-│  │  │  └──────────┘  └──────────┘  └──────────┘  └──────────┘            │   ││
-│  │  └─────────────────────────────────────────────────────────────────────┘   ││
+│  │  ┌────────────┐  ┌────────────┐  ┌────────────┐  ┌────────────┐           ││
+│  │  │   Web      │  │  Vibe      │  │   Recon    │  │   TUI      │           ││
+│  │  │  Scraping  │  │  Coding    │  │   OSINT    │  │ Dashboard  │           ││
+│  │  └────────────┘  └────────────┘  └────────────┘  └────────────┘           ││
 │  └─────────────────────────────────────────────────────────────────────────────┘│
 │                                                     │                           │
 │  ┌──────────────────────────────────────────────────▼─────────────────────────┐│
 │  │                       OUTPUT FORMATTER                                      ││
-│  │     Structured Results + Code + Links + Files + Terminal Display           ││
+│  │     Structured Results + Code + Links + Files + Terminal / TUI Display     ││
 │  └─────────────────────────────────────────────────────────────────────────────┘│
 └─────────────────────────────────────────────────────────────────────────────────┘
 ```
@@ -262,9 +401,10 @@ You'll see the welcome banner:
 ```
 theJoker/
 ├── src/
-│   ├── index.ts                 # Entry point
+│   ├── index.ts                 # Entry point & CLI command registration
 │   ├── cli/
 │   │   ├── terminal.ts          # Terminal interface
+│   │   ├── dashboard.ts         # ★ TUI Dashboard (blessed split-pane UI)
 │   │   ├── commands.ts          # Command handlers
 │   │   ├── display.ts           # Output formatting
 │   │   ├── progress.ts          # Progress tracking
@@ -273,10 +413,11 @@ theJoker/
 │   │   ├── agent.ts             # Main agent loop
 │   │   ├── planner.ts           # Action planning
 │   │   ├── executor.ts          # Tool execution
-│   │   └── memory.ts            # Session memory
+│   │   ├── memory.ts            # Session memory
+│   │   └── vibe-coder.ts        # ★ Vibe Coding Pipeline orchestrator
 │   ├── llm/
 │   │   ├── client.ts            # LM Studio API client
-│   │   ├── prompts.ts           # Prompt templates
+│   │   ├── prompts.ts           # Prompt templates (incl. vibe coding)
 │   │   ├── parser.ts            # Response parsing
 │   │   └── summarizer.ts        # LLM summarization
 │   ├── scraper/
@@ -288,7 +429,13 @@ theJoker/
 │   │   ├── registry.ts          # Tool registry
 │   │   ├── search.ts            # Web search tool
 │   │   ├── scrape.ts            # Scraping tool
+│   │   ├── recon.ts             # ★ Hack Mode — Domain Recon & OSINT
 │   │   └── process.ts           # Data processing
+│   ├── project/
+│   │   ├── scaffolder.ts        # Project scaffolding
+│   │   └── dev-server.ts        # ★ Dev Server Manager (port, spawn, HMR)
+│   ├── coding/
+│   │   └── generator.ts         # LLM-powered code generation
 │   ├── errors/
 │   │   ├── handler.ts           # Error handling
 │   │   ├── retry.ts             # Retry logic
@@ -306,32 +453,38 @@ theJoker/
 ├── tests/
 │   ├── unit/                    # Unit tests
 │   └── integration/             # Integration tests
-├── config/
-│   └── prompts/                 # Prompt templates
-├── logs/                        # Log files
+├── reports/                     # ★ Recon reports output
+├── projects/                    # ★ Vibe coding project output
 ├── .env.example                 # Environment template
 ├── package.json
 ├── tsconfig.json
 └── README.md
 ```
 
+> ★ = New in this release
+
 ---
 
 ## 💻 Built-in Commands
 
-| Command | Alias | Description |
-|---------|-------|-------------|
-| `help` | `h`, `?` | Show available commands |
-| `clear` | `cls`, `c` | Clear terminal |
+| Command | Aliases | Description |
+|---------|---------|-------------|
+| `help` | — | Show all available commands with examples |
+| `clear` | `cls` | Clear terminal |
 | `exit` | `quit`, `q` | Exit The Joker |
-| `history` | `hist` | Show command history |
-| `status` | `stat` | Check LM Studio connection |
-| `banner` | | Show welcome banner |
-| `version` | `ver`, `v` | Show version info |
-| `agent` | | Run a query through the agent |
+| `history` | — | Show command history |
+| `banner` | — | Show welcome banner |
+| `agent` | — | Run a query through the autonomous agent |
 | `memory` | `mem` | Show agent memory stats |
-| `agent-status` | | Show agent state |
-| `reset-agent` | | Reset agent state |
+| `agent-status` | — | Show agent state |
+| `reset-agent` | — | Reset agent state |
+| **`vibe`** | `build`, `create-app` | **Build a complete app from natural language** |
+| **`vibe-stop`** | `stop-dev` | **Stop the running vibe coding dev server** |
+| **`recon`** | `scan`, `osint`, `investigate` | **Run passive recon on a domain** |
+| **`tui`** | `dashboard`, `ui` | **Toggle interactive TUI dashboard** |
+| **`airllm`** | `air`, `70b` | **Switch to AirLLM backend (70B on 4GB RAM)** |
+| **`airllm-stop`** | `air-stop` | **Stop AirLLM sidecar, revert to LM Studio** |
+| **`airllm-status`** | `air-status` | **Show AirLLM sidecar status** |
 
 ---
 
@@ -339,7 +492,7 @@ theJoker/
 
 ### web_search
 Search the web for information.
-```typescript
+```
 Parameters:
   - query: string (required) - Search query
   - numResults: number (default: 10) - Number of results
@@ -348,7 +501,7 @@ Parameters:
 
 ### scrape_page
 Scrape content from a web page.
-```typescript
+```
 Parameters:
   - url: string (required) - URL to scrape
   - selectors: object (optional) - CSS selectors for extraction
@@ -356,22 +509,75 @@ Parameters:
   - scroll: boolean (default: true) - Scroll to load content
 ```
 
-### extract_links
-Extract all links from a page.
-```typescript
+### recon *(New)*
+Passive domain reconnaissance and OSINT.
+```
 Parameters:
-  - url: string (required) - URL to extract from
-  - filter: string (optional) - Domain filter
+  - domain: string (required) - Target domain
+Output:
+  - DNS records, WHOIS, SSL/TLS, HTTP headers
+  - Tech stack detection (25+ frameworks/services)
+  - Email and social link extraction
+  - Security score (0-100)
+  - Full markdown report saved to ./reports/
 ```
 
-### process_data
-Process and structure scraped data.
-```typescript
-Parameters:
-  - data: any (required) - Data to process
-  - operation: string (required) - Operation type
-  - options: object (optional) - Processing options
+### vibe *(New)*
+Build a complete application from a natural language description.
 ```
+Parameters:
+  - description: string (required) - What to build
+Pipeline:
+  1. LLM prompt analysis → project spec
+  2. Framework scaffolding (React, Next.js, Vue, Express, Node)
+  3. Code generation (components, pages, styles)
+  4. npm install
+  5. Dev server launch + browser open
+  6. Live session refinement via HMR
+```
+
+---
+
+## 🧠 AirLLM — 70B Models on 4GB RAM
+
+The Joker supports [AirLLM](https://github.com/lyogavin/airllm/) for running **70B-parameter models on as little as 4GB of GPU RAM** using layer-wise inference.
+
+> **Citation:** Li, G. (2023). *AirLLM: scaling large language models on low-end commodity computers* [Computer software]. https://github.com/lyogavin/airllm/
+
+### Prerequisites
+
+- **Python 3.9+** installed and accessible via `python`
+- GPU with at least 4GB VRAM (or CPU-only with patience)
+- ~40GB disk space for 70B model download
+
+### Setup
+
+```bash
+pip install -r requirements-airllm.txt
+```
+
+### Usage
+
+From inside The Joker terminal:
+
+```
+🃏 Joker > airllm
+🃏 Joker > airllm meta-llama/Llama-2-70b-chat-hf
+🃏 Joker > airllm-status
+🃏 Joker > airllm-stop
+```
+
+### Configuration
+
+```env
+AIRLLM_MODEL=garage-bAInd/Platypus2-70B-instruct
+AIRLLM_PORT=8899
+AIRLLM_MAX_LENGTH=512
+AIRLLM_COMPRESSION=none    # none | 4bit | 8bit
+AIRLLM_PYTHON_PATH=python
+```
+
+> ⚠️ AirLLM inference is slow (30–120s per response) — each layer loads from disk to GPU one at a time.
 
 ---
 
@@ -425,8 +631,6 @@ npm run test:watch
 
 ### Test Coverage
 
-The project maintains comprehensive test coverage:
-
 | Test Suite | Tests | Status |
 |------------|-------|--------|
 | Agent System | 120+ | ✅ Passing |
@@ -437,7 +641,7 @@ The project maintains comprehensive test coverage:
 | Error Handling | 70+ | ✅ Passing |
 | Project Management | 100+ | ✅ Passing |
 | Utilities | 150+ | ✅ Passing |
-| **Total** | **966** | **✅ All Passing** |
+| **Total** | **980** | **✅ All Passing** |
 
 ---
 
@@ -499,24 +703,39 @@ See the [LICENSE](LICENSE) file for details.
 
 ### Open Source Libraries
 
-This project is built with these amazing open source libraries:
-
 | Library | Purpose | License |
 |---------|---------|---------|
 | [Puppeteer](https://pptr.dev/) | Browser automation | Apache-2.0 |
 | [puppeteer-extra](https://github.com/berstend/puppeteer-extra) | Plugin system | MIT |
-| [puppeteer-extra-plugin-stealth](https://github.com/berstend/puppeteer-extra) | Stealth mode | MIT |
+| [Blessed](https://github.com/chjj/blessed) | TUI Dashboard framework | MIT |
 | [Axios](https://axios-http.com/) | HTTP client | MIT |
 | [Cheerio](https://cheerio.js.org/) | HTML parsing | MIT |
 | [Chalk](https://github.com/chalk/chalk) | Terminal styling | MIT |
 | [Winston](https://github.com/winstonjs/winston) | Logging | MIT |
+| [dns2](https://github.com/song940/node-dns) | DNS lookups for Recon | MIT |
 | [Jest](https://jestjs.io/) | Testing | MIT |
 | [TypeScript](https://www.typescriptlang.org/) | Type safety | Apache-2.0 |
+| [AirLLM](https://github.com/lyogavin/airllm/) | 70B models on 4GB RAM | Apache-2.0 |
 
 ### Special Thanks
 
 - [LM Studio](https://lmstudio.ai/) for local LLM inference
+- [AirLLM](https://github.com/lyogavin/airllm/) by Gavin Li for enabling 70B models on 4GB RAM
 - The open source community for their amazing tools and libraries
+
+### Citation
+
+If you use The Joker's AirLLM integration in your research, please cite:
+
+```bibtex
+@software{airllm2023,
+  author = {Gavin Li},
+  title = {AirLLM: scaling large language models on low-end commodity computers},
+  url = {https://github.com/lyogavin/airllm/},
+  version = {0.0},
+  year = {2023},
+}
+```
 
 ---
 
@@ -539,6 +758,6 @@ This project is built with these amazing open source libraries:
 
 **Made with ❤️ by Ratna Kirti**
 
-**🃏 The Joker - Agentic Terminal v1.0.0**
+**🃏 The Joker - Agentic Terminal v1.1.1**
 
 </div>

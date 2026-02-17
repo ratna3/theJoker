@@ -1,0 +1,11 @@
+# AirLLM Sidecar Server Dependencies
+# Install with: pip install -r requirements-airllm.txt
+#
+# Citation:
+#   Li, G. (2023). AirLLM: scaling large language models on low-end
+#   commodity computers [Computer software].
+#   https://github.com/lyogavin/airllm/
+
+airllm>=2.8.2
+fastapi>=0.115.0
+uvicorn>=0.34.0

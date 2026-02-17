@@ -22,6 +22,17 @@ export interface LLMConfig {
   timeout?: number;
 }
 
+export type LLMBackend = 'lmstudio' | 'airllm';
+
+export interface AirLLMConfig {
+  enabled: boolean;
+  model: string;
+  port: number;
+  maxLength: number;
+  compression: 'none' | '4bit' | '8bit';
+  pythonPath: string;
+}
+
 export interface ChatMessage {
   role: 'system' | 'user' | 'assistant' | 'function' | 'tool';
   content: string;
@@ -148,7 +159,7 @@ export interface PlanStep {
   dependsOn?: string[];
 }
 
-export type Intent = 
+export type Intent =
   | 'web_search'
   | 'web_scrape'
   | 'data_extract'
@@ -360,4 +371,5 @@ export interface AppConfig {
   scraper: ScraperConfig;
   terminal: TerminalConfig;
   log: LogConfig;
+  airllm: AirLLMConfig;
 }
