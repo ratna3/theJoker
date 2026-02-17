@@ -1,6 +1,6 @@
 # The Joker Contribution License (TJCL) v1.0
 
-**Copyright © 2024-2025 Ratna Kirti. All rights reserved.**
+**Copyright © 2024-2026 Ratna Kirti. All rights reserved.**
 
 ---
 
@@ -125,4 +125,4 @@ For licensing inquiries, permissions, or questions:
 ---
 
 *The Joker Contribution License (TJCL) v1.0*
-*Last Updated: December 2024*
+*Last Updated: February 2026*
