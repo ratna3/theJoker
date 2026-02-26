@@ -3,12 +3,21 @@
  * IPC Handlers — Bridge between renderer and backend
  */
 
-import { ipcMain, BrowserWindow } from 'electron';
+import { ipcMain, BrowserWindow, app } from 'electron';
 import * as path from 'path';
 import { isFirstRun, getConfig, saveConfig, loadEnvIntoProcess } from './config-store';
 
-// We load from compiled dist
-const BACKEND_PATH = path.resolve(__dirname, '..', '..', '..', 'dist');
+/**
+ * Resolve backend dist path:
+ * - Dev:      e:\theJoker\dist\
+ * - Packaged: resources\backend\   (set by extraResources in electron-builder)
+ */
+function getBackendPath(): string {
+    if (app.isPackaged) {
+        return path.join(process.resourcesPath, 'backend');
+    }
+    return path.resolve(__dirname, '..', '..', '..', 'dist');
+}
 
 let llmClient: any = null;
 let agent: any = null;
@@ -22,10 +31,11 @@ function getBackendModules() {
     // Ensure env is loaded before importing backend modules
     loadEnvIntoProcess();
 
-    const { LMStudioClient } = require(path.join(BACKEND_PATH, 'llm', 'client'));
-    const { getAgent, getMemory } = require(path.join(BACKEND_PATH, 'agents'));
-    const { ReconPipeline } = require(path.join(BACKEND_PATH, 'tools', 'recon'));
-    const { VibeCodingPipeline } = require(path.join(BACKEND_PATH, 'agents', 'vibe-coder'));
+    const bp = getBackendPath();
+    const { LMStudioClient } = require(path.join(bp, 'llm', 'client'));
+    const { getAgent, getMemory } = require(path.join(bp, 'agents'));
+    const { ReconPipeline } = require(path.join(bp, 'tools', 'recon'));
+    const { VibeCodingPipeline } = require(path.join(bp, 'agents', 'vibe-coder'));
 
     return { LMStudioClient, getAgent, getMemory, ReconPipeline, VibeCodingPipeline };
 }

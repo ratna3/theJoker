@@ -3,18 +3,70 @@
     "version": "1.1.1",
     "description": "The Joker - Premium AI Desktop Terminal",
     "main": "dist/main/main.js",
+    "author": "Ratna Kirti",
+    "license": "SEE LICENSE IN LICENSE.md",
     "scripts": {
         "start": "npm run build && electron .",
         "build": "tsc",
         "dev": "tsc && electron .",
-        "package": "npm run build && electron-forge package",
-        "make": "npm run build && electron-forge make"
+        "make": "npm run build && electron-builder --win",
+        "make:dir": "npm run build && electron-builder --win --dir"
+    },
+    "build": {
+        "appId": "com.ratnakirti.thejoker",
+        "productName": "The Joker",
+        "copyright": "Copyright © 2024-2026 Ratna Kirti. All rights reserved.",
+        "directories": {
+            "output": "out"
+        },
+        "files": [
+            "dist/**/*",
+            "renderer/**/*",
+            "assets/**/*"
+        ],
+        "extraResources": [
+            {
+                "from": "../dist",
+                "to": "backend",
+                "filter": [
+                    "**/*"
+                ]
+            },
+            {
+                "from": "../node_modules",
+                "to": "backend-modules",
+                "filter": [
+                    "**/*"
+                ]
+            },
+            {
+                "from": "../package.json",
+                "to": "backend-package.json"
+            }
+        ],
+        "win": {
+            "target": "nsis",
+            "icon": "assets/theJoker.ico",
+            "signAndEditExecutable": false
+        },
+        "nsis": {
+            "oneClick": false,
+            "allowToChangeInstallationDirectory": true,
+            "license": "assets/LICENSE.rtf",
+            "installerIcon": "assets/theJoker.ico",
+            "uninstallerIcon": "assets/theJoker.ico",
+            "installerHeaderIcon": "assets/theJoker.ico",
+            "createDesktopShortcut": true,
+            "createStartMenuShortcut": true,
+            "shortcutName": "The Joker",
+            "perMachine": false,
+            "installerSidebar": null,
+            "artifactName": "TheJoker-Setup-${version}.${ext}"
+        }
     },
     "devDependencies": {
-        "@electron-forge/cli": "^7.6.0",
-        "@electron-forge/maker-squirrel": "^7.6.0",
-        "@electron-forge/maker-zip": "^7.6.0",
         "electron": "^33.3.1",
+        "electron-builder": "^25.1.8",
         "typescript": "^5.9.3"
     },
     "dependencies": {

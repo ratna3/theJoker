@@ -1,14 +1,45 @@
 /**
  * The Joker - Electron Desktop App
- * Config Store — .env management + first-run detection
+ * Config Store — Configuration management + first-run detection
+ *
+ * In dev:       .env lives at project root (e:\theJoker\.env)
+ * In packaged:  config is stored in app userData directory
  */
 
 import * as fs from 'fs';
 import * as path from 'path';
+import { app } from 'electron';
 
-const ROOT_DIR = path.resolve(__dirname, '..', '..', '..');
-const ENV_PATH = path.join(ROOT_DIR, '.env');
-const ENV_EXAMPLE_PATH = path.join(ROOT_DIR, '.env.example');
+/**
+ * Determine if we are running in a packaged (production) build or dev.
+ */
+function isPackaged(): boolean {
+    return app.isPackaged;
+}
+
+/**
+ * Get the directory where we read/write the .env config.
+ * - Dev: project root  (e:\theJoker\)
+ * - Packaged: Electron userData folder (AppData\Roaming\The Joker\)
+ */
+function getConfigDir(): string {
+    if (isPackaged()) {
+        return app.getPath('userData');
+    }
+    // Dev mode: go from electron/dist/main/ → project root
+    return path.resolve(__dirname, '..', '..', '..');
+}
+
+const ENV_FILENAME = '.env';
+
+function getEnvPath(): string {
+    return path.join(getConfigDir(), ENV_FILENAME);
+}
+
+function getEnvExamplePath(): string {
+    // .env.example only exists in dev (project root)
+    return path.resolve(__dirname, '..', '..', '..', '.env.example');
+}
 
 export interface JokerConfig {
     LM_STUDIO_BASE_URL: string;
@@ -47,8 +78,9 @@ function parseEnvFile(filePath: string): Record<string, string> {
  * Check if this is the first run (no .env or missing LM_STUDIO keys)
  */
 export function isFirstRun(): boolean {
-    if (!fs.existsSync(ENV_PATH)) return true;
-    const env = parseEnvFile(ENV_PATH);
+    const envPath = getEnvPath();
+    if (!fs.existsSync(envPath)) return true;
+    const env = parseEnvFile(envPath);
     return !env['LM_STUDIO_BASE_URL'] || !env['LM_STUDIO_MODEL'];
 }
 
@@ -56,7 +88,7 @@ export function isFirstRun(): boolean {
  * Get current config from .env
  */
 export function getConfig(): JokerConfig {
-    const env = parseEnvFile(ENV_PATH);
+    const env = parseEnvFile(getEnvPath());
     return {
         ...DEFAULTS,
         ...env,
@@ -67,19 +99,21 @@ export function getConfig(): JokerConfig {
  * Save config values to .env file
  */
 export function saveConfig(config: Partial<JokerConfig>): void {
-    let existing: Record<string, string> = {};
+    const envPath = getEnvPath();
+    const envExamplePath = getEnvExamplePath();
 
-    // If .env.example exists but .env doesn't, start from example
-    if (!fs.existsSync(ENV_PATH) && fs.existsSync(ENV_EXAMPLE_PATH)) {
-        const exampleContent = fs.readFileSync(ENV_EXAMPLE_PATH, 'utf-8');
-        // Write a copy and then modify
-        fs.writeFileSync(ENV_PATH, exampleContent, 'utf-8');
-    } else if (!fs.existsSync(ENV_PATH)) {
-        fs.writeFileSync(ENV_PATH, '', 'utf-8');
+    // If .env doesn't exist, create from example or from scratch
+    if (!fs.existsSync(envPath)) {
+        if (!isPackaged() && fs.existsSync(envExamplePath)) {
+            const exampleContent = fs.readFileSync(envExamplePath, 'utf-8');
+            fs.writeFileSync(envPath, exampleContent, 'utf-8');
+        } else {
+            fs.writeFileSync(envPath, '', 'utf-8');
+        }
     }
 
     // Read current .env content
-    const content = fs.readFileSync(ENV_PATH, 'utf-8');
+    const content = fs.readFileSync(envPath, 'utf-8');
     const lines = content.split(/\r?\n/);
     const updatedKeys = new Set<string>();
 
@@ -104,7 +138,7 @@ export function saveConfig(config: Partial<JokerConfig>): void {
         }
     }
 
-    fs.writeFileSync(ENV_PATH, newLines.join('\n'), 'utf-8');
+    fs.writeFileSync(envPath, newLines.join('\n'), 'utf-8');
 
     // Also set process.env so the backend picks up changes immediately
     for (const [key, value] of Object.entries(config)) {
@@ -116,7 +150,7 @@ export function saveConfig(config: Partial<JokerConfig>): void {
  * Inject current .env values into process.env
  */
 export function loadEnvIntoProcess(): void {
-    const env = parseEnvFile(ENV_PATH);
+    const env = parseEnvFile(getEnvPath());
     for (const [key, value] of Object.entries(env)) {
         process.env[key] = value;
     }
