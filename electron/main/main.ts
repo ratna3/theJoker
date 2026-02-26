@@ -40,9 +40,11 @@ function createWindow(): void {
     let iconPath: string;
 
     if (app.isPackaged) {
-        // In packaged: renderer/ and assets/ are inside the asar
-        rendererPath = path.join(__dirname, '..', 'renderer', 'index.html');
-        iconPath = path.join(__dirname, '..', 'assets', 'theJoker.png');
+        // In packaged: __dirname = app.asar/dist/main/
+        // renderer/ and assets/ are at app.asar/ root — go up 2 levels
+        const asarRoot = path.join(__dirname, '..', '..');
+        rendererPath = path.join(asarRoot, 'renderer', 'index.html');
+        iconPath = path.join(asarRoot, 'assets', 'theJoker.png');
     } else {
         // In dev: __dirname = electron/dist/main/, go up to electron/
         const electronRoot = path.resolve(__dirname, '..', '..');
