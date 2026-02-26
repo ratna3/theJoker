@@ -5,10 +5,11 @@
 
 import puppeteer from 'puppeteer-extra';
 import StealthPlugin from 'puppeteer-extra-plugin-stealth';
-import { Browser, Page, LaunchOptions } from 'puppeteer';
+import { Browser, Page, LaunchOptions } from 'puppeteer-core';
 import { EventEmitter } from 'events';
 import { logger } from '../utils/logger';
 import { scraperConfig } from '../utils/config';
+import { findChrome } from '../utils/chrome-finder';
 
 // Apply stealth plugin
 puppeteer.use(StealthPlugin());
@@ -73,7 +74,7 @@ export class BrowserPool extends EventEmitter {
       created: 0,
       recycled: 0,
     };
-    
+
     logger.debug('Browser pool initialized', { maxInstances, maxUseCount });
   }
 
@@ -81,8 +82,10 @@ export class BrowserPool extends EventEmitter {
    * Create a new browser instance
    */
   private async createBrowser(): Promise<Browser> {
+    const executablePath = scraperConfig.chromePath || findChrome();
     const launchOptions: LaunchOptions = {
       headless: scraperConfig.headless ? 'shell' : false,
+      executablePath,
       args: DEFAULT_BROWSER_ARGS,
       defaultViewport: {
         width: 1920,
@@ -92,10 +95,10 @@ export class BrowserPool extends EventEmitter {
     };
 
     logger.debug('Launching new browser instance', { headless: scraperConfig.headless });
-    
+
     const browser = await puppeteer.launch(launchOptions);
     this.stats.created++;
-    
+
     // Set up disconnect handler
     browser.on('disconnected', () => {
       logger.warn('Browser disconnected');
@@ -116,14 +119,14 @@ export class BrowserPool extends EventEmitter {
         instance.useCount++;
         this.stats.available--;
         this.stats.inUse++;
-        
+
         // Check if instance should be recycled
         if (instance.useCount >= this.maxUseCount) {
           logger.debug('Recycling browser instance', { id, useCount: instance.useCount });
           await this.recycleInstance(id);
           return this.acquire();
         }
-        
+
         logger.debug('Acquired browser from pool', { id, useCount: instance.useCount });
         return instance.browser;
       }
@@ -133,7 +136,7 @@ export class BrowserPool extends EventEmitter {
     if (this.instances.size < this.maxInstances) {
       const browser = await this.createBrowser();
       const id = `browser_${Date.now()}`;
-      
+
       const instance: BrowserInstance = {
         browser,
         id,
@@ -141,11 +144,11 @@ export class BrowserPool extends EventEmitter {
         useCount: 1,
         isAvailable: false,
       };
-      
+
       this.instances.set(id, instance);
       this.stats.total++;
       this.stats.inUse++;
-      
+
       logger.debug('Created new browser instance', { id });
       return browser;
     }
@@ -233,9 +236,9 @@ export class BrowserPool extends EventEmitter {
    */
   async shutdown(): Promise<void> {
     logger.info('Shutting down browser pool');
-    
+
     const closePromises: Promise<void>[] = [];
-    
+
     for (const [id, instance] of this.instances) {
       closePromises.push(
         instance.browser.close().catch((error) => {
@@ -243,10 +246,10 @@ export class BrowserPool extends EventEmitter {
         })
       );
     }
-    
+
     await Promise.all(closePromises);
     this.instances.clear();
-    
+
     this.stats = {
       total: 0,
       available: 0,
@@ -254,7 +257,7 @@ export class BrowserPool extends EventEmitter {
       created: this.stats.created,
       recycled: this.stats.recycled,
     };
-    
+
     logger.info('Browser pool shutdown complete');
   }
 }
@@ -299,21 +302,21 @@ export class BrowserManager {
    */
   async createPage(browser: Browser): Promise<Page> {
     const page = await browser.newPage();
-    
+
     // Set user agent
     await page.setUserAgent(scraperConfig.userAgent);
-    
+
     // Set viewport
     await page.setViewport({
       width: 1920,
       height: 1080,
     });
-    
+
     // Set extra HTTP headers
     await page.setExtraHTTPHeaders({
       'Accept-Language': 'en-US,en;q=0.9',
     });
-    
+
     // Block unnecessary resources for faster loading
     await page.setRequestInterception(true);
     page.on('request', (request) => {
@@ -324,11 +327,11 @@ export class BrowserManager {
         request.continue();
       }
     });
-    
+
     // Set default navigation timeout
     page.setDefaultNavigationTimeout(scraperConfig.timeout);
     page.setDefaultTimeout(scraperConfig.timeout);
-    
+
     logger.debug('Created new page with settings');
     return page;
   }

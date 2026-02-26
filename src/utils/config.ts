@@ -60,6 +60,7 @@ export const agentConfig: AgentConfig = {
  */
 export const scraperConfig: ScraperConfig = {
   headless: getEnvBool('SCRAPER_HEADLESS', true),
+  chromePath: getEnv('CHROME_PATH', ''),
   timeout: getEnvNumber('SCRAPER_TIMEOUT_MS', 30000),
   userAgent: getEnv(
     'SCRAPER_USER_AGENT',

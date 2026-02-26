@@ -3,7 +3,7 @@
  * Data Extraction Utilities
  */
 
-import { Page, ElementHandle } from 'puppeteer';
+import { Page, ElementHandle } from 'puppeteer-core';
 import * as cheerio from 'cheerio';
 import { logger } from '../utils/logger';
 import { ScrapeResult, ExtractedLink, ExtractedImage, SearchResult } from '../types';
@@ -414,13 +414,13 @@ export async function extractGoogleResults(page: Page): Promise<SearchResult[]> 
   try {
     const results = await page.evaluate(() => {
       const searchResults: { title: string; url: string; snippet: string }[] = [];
-      
+
       // Main search results
       document.querySelectorAll('div.g').forEach((result) => {
         const titleEl = result.querySelector('h3');
         const linkEl = result.querySelector('a');
-        const snippetEl = result.querySelector('div[data-sncf]') || 
-                          result.querySelector('.VwiC3b');
+        const snippetEl = result.querySelector('div[data-sncf]') ||
+          result.querySelector('.VwiC3b');
 
         if (titleEl && linkEl) {
           searchResults.push({

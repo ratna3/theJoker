@@ -1,0 +1,23 @@
+{
+    "name": "thejoker-desktop",
+    "version": "1.1.1",
+    "description": "The Joker - Premium AI Desktop Terminal",
+    "main": "dist/main/main.js",
+    "scripts": {
+        "start": "npm run build && electron .",
+        "build": "tsc",
+        "dev": "tsc && electron .",
+        "package": "npm run build && electron-forge package",
+        "make": "npm run build && electron-forge make"
+    },
+    "devDependencies": {
+        "@electron-forge/cli": "^7.6.0",
+        "@electron-forge/maker-squirrel": "^7.6.0",
+        "@electron-forge/maker-zip": "^7.6.0",
+        "electron": "^33.3.1",
+        "typescript": "^5.9.3"
+    },
+    "dependencies": {
+        "electron-store": "^10.0.0"
+    }
+}

@@ -3,7 +3,7 @@
  * Page Navigation Utilities
  */
 
-import { Page, HTTPResponse } from 'puppeteer';
+import { Page, HTTPResponse } from 'puppeteer-core';
 import { logger } from '../utils/logger';
 import { scraperConfig } from '../utils/config';
 import { randomDelay, handleCookieConsent, detectBlocking, humanScroll } from './stealth';
@@ -237,7 +237,7 @@ export async function handlePopups(page: Page): Promise<number> {
   // Handle new page targets (popups)
   const browser = page.browser();
   const pages = await browser.pages();
-  
+
   for (const p of pages) {
     if (p !== page && p.url() !== 'about:blank') {
       await p.close();
@@ -276,7 +276,7 @@ export async function captureScreenshot(
  */
 export async function waitForPageLoad(page: Page): Promise<void> {
   await Promise.all([
-    page.waitForNavigation({ waitUntil: 'networkidle2' }).catch(() => {}),
+    page.waitForNavigation({ waitUntil: 'networkidle2' }).catch(() => { }),
     page.evaluate(() => {
       return new Promise<void>((resolve) => {
         if (document.readyState === 'complete') {

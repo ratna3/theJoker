@@ -1,0 +1,203 @@
+/* ═══════════════════════════════════════════════
+   Setup Wizard — First-Run Configuration
+   ═══════════════════════════════════════════════ */
+
+.setup-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 9999;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--bg-primary);
+    overflow: hidden;
+}
+
+/* Animated gradient background */
+.setup-overlay::before {
+    content: '';
+    position: absolute;
+    inset: -50%;
+    background: linear-gradient(45deg,
+            var(--bg-primary) 0%,
+            #1a0a3e 25%,
+            var(--bg-primary) 50%,
+            #0a1a2e 75%,
+            var(--bg-primary) 100%);
+    background-size: 400% 400%;
+    animation: gradientMove 15s ease infinite;
+    opacity: 0.6;
+}
+
+.setup-card {
+    position: relative;
+    width: 520px;
+    background: var(--bg-glass);
+    border: 1px solid var(--border-glass);
+    border-radius: var(--radius-xl);
+    backdrop-filter: blur(30px);
+    padding: 48px 40px;
+    animation: slideUp 0.6s ease;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+}
+
+/* Step indicators */
+.setup-steps {
+    display: flex;
+    justify-content: center;
+    gap: 12px;
+    margin-bottom: 36px;
+}
+
+.setup-step-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: var(--bg-tertiary);
+    transition: var(--transition);
+}
+
+.setup-step-dot.active {
+    background: var(--accent-purple);
+    box-shadow: var(--glow-purple);
+    transform: scale(1.2);
+}
+
+.setup-step-dot.done {
+    background: var(--accent-green);
+}
+
+/* Welcome screen */
+.setup-logo {
+    font-size: 64px;
+    text-align: center;
+    margin-bottom: 16px;
+    animation: pulse 3s infinite;
+}
+
+.setup-title {
+    font-size: 28px;
+    font-weight: 700;
+    text-align: center;
+    margin-bottom: 8px;
+    background: linear-gradient(135deg, var(--accent-purple-light), var(--accent-gold));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+}
+
+.setup-subtitle {
+    font-size: 14px;
+    color: var(--text-secondary);
+    text-align: center;
+    margin-bottom: 36px;
+    line-height: 1.6;
+}
+
+/* Form fields */
+.setup-label {
+    display: block;
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--text-secondary);
+    margin-bottom: 8px;
+}
+
+.setup-input {
+    width: 100%;
+    padding: 14px 18px;
+    background: rgba(10, 10, 26, 0.8);
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-md);
+    color: var(--text-primary);
+    font-family: var(--font-mono);
+    font-size: 14px;
+    outline: none;
+    transition: var(--transition);
+    margin-bottom: 20px;
+}
+
+.setup-input:focus {
+    border-color: var(--accent-purple);
+    box-shadow: 0 0 0 3px rgba(108, 46, 185, 0.15), var(--glow-purple);
+}
+
+.setup-hint {
+    font-size: 12px;
+    color: var(--text-muted);
+    margin-top: -16px;
+    margin-bottom: 20px;
+}
+
+/* Connection test */
+.setup-status {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 14px 18px;
+    border-radius: var(--radius-md);
+    margin-bottom: 24px;
+    font-size: 13px;
+    animation: fadeIn 0.3s ease;
+}
+
+.setup-status.testing {
+    background: var(--accent-purple-dim);
+    color: var(--accent-purple-light);
+}
+
+.setup-status.success {
+    background: var(--accent-green-dim);
+    color: var(--accent-green);
+}
+
+.setup-status.error {
+    background: var(--accent-red-dim);
+    color: var(--accent-red);
+}
+
+.setup-status .spinner {
+    width: 16px;
+    height: 16px;
+    border: 2px solid transparent;
+    border-top-color: currentColor;
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+/* Buttons */
+.setup-actions {
+    display: flex;
+    gap: 12px;
+    margin-top: 12px;
+}
+
+.setup-actions .btn {
+    flex: 1;
+}
+
+/* Step transition */
+.setup-step-content {
+    animation: fadeIn 0.4s ease;
+}
+
+/* Success animation */
+.setup-success-icon {
+    width: 80px;
+    height: 80px;
+    margin: 0 auto 24px;
+    border-radius: 50%;
+    background: var(--accent-green-dim);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 36px;
+    animation: glow 2s infinite;
+    box-shadow: var(--glow-green);
+}

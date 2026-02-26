@@ -5,7 +5,7 @@
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
-import { Page } from 'puppeteer';
+import { Page } from 'puppeteer-core';
 import { logger } from '../utils/logger';
 
 /**
@@ -81,20 +81,20 @@ export async function humanMouseMove(
   steps = 10
 ): Promise<void> {
   const mouse = page.mouse;
-  
+
   // Get current position (start from center if first move)
   const startX = Math.random() * 500 + 200;
   const startY = Math.random() * 300 + 200;
-  
+
   // Calculate step increments with some randomness
   for (let i = 0; i <= steps; i++) {
     const progress = i / steps;
     // Use easing function for more natural movement
     const easedProgress = easeInOutQuad(progress);
-    
+
     const currentX = startX + (targetX - startX) * easedProgress + (Math.random() - 0.5) * 10;
     const currentY = startY + (targetY - startY) * easedProgress + (Math.random() - 0.5) * 10;
-    
+
     await mouse.move(currentX, currentY);
     await randomDelay(10, 30);
   }
@@ -117,21 +117,21 @@ export async function humanClick(page: Page, selector: string): Promise<void> {
       logger.warn('Element not found for click', { selector });
       return;
     }
-    
+
     const box = await element.boundingBox();
     if (!box) {
       logger.warn('Could not get bounding box for element', { selector });
       return;
     }
-    
+
     // Click at a random point within the element
     const x = box.x + Math.random() * box.width;
     const y = box.y + Math.random() * box.height;
-    
+
     await humanMouseMove(page, x, y);
     await randomDelay(100, 300);
     await page.mouse.click(x, y);
-    
+
     logger.debug('Human-like click performed', { selector, x, y });
   } catch (error) {
     logger.error('Error during human click', { error, selector });
@@ -158,11 +158,11 @@ export async function humanScroll(
   amount = 300
 ): Promise<void> {
   const scrollAmount = direction === 'down' ? amount : -amount;
-  
+
   // Scroll in smaller increments
   const steps = 5;
   const stepAmount = scrollAmount / steps;
-  
+
   for (let i = 0; i < steps; i++) {
     await page.evaluate((delta) => {
       window.scrollBy(0, delta);

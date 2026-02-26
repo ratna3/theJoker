@@ -201,6 +201,7 @@ export interface ToolResult {
 
 export interface ScraperConfig {
   headless: boolean;
+  chromePath: string;
   timeout: number;
   userAgent: string;
   maxConcurrent: number;
