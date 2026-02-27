@@ -1,0 +1,286 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ── CSS Custom Properties ── */
+:root {
+  --color-bg: #0d0d1a;
+  --color-sidebar: #12122a;
+  --color-panel: #1a1a2e;
+  --color-accent: #7c3aed;
+  --color-accent-hover: #6d28d9;
+  --color-accent-muted: rgba(124, 58, 237, 0.125);
+  --color-success: #10b981;
+  --color-error: #ef4444;
+  --color-warning: #f59e0b;
+  --color-text: #e2e8f0;
+  --color-text-muted: #64748b;
+  --color-border: #2d2d4e;
+  --font-mono: 'JetBrains Mono', 'Fira Code', 'Cascadia Code', monospace;
+  --font-sans: 'Inter', system-ui, -apple-system, sans-serif;
+}
+
+/* ── Base Reset ── */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html, body, #root {
+  height: 100%;
+  width: 100%;
+  overflow: hidden;
+  font-family: var(--font-sans);
+  background: var(--color-bg);
+  color: var(--color-text);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* ── Scrollbar Styling ── */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--color-border);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #3d3d5e;
+}
+
+::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
+/* ── Selection ── */
+::selection {
+  background: rgba(124, 58, 237, 0.4);
+  color: white;
+}
+
+/* ── Focus Outline ── */
+:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}
+
+/* ── Utility Classes ── */
+.no-select {
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.drag-region {
+  -webkit-app-region: drag;
+}
+
+.no-drag {
+  -webkit-app-region: no-drag;
+}
+
+/* ── Glass Effect ── */
+.glass {
+  background: rgba(26, 26, 46, 0.8);
+  backdrop-filter: blur(12px);
+  border: 1px solid var(--color-border);
+}
+
+/* ── Fade animations by index ── */
+.stagger-1 { animation-delay: 30ms; }
+.stagger-2 { animation-delay: 60ms; }
+.stagger-3 { animation-delay: 90ms; }
+.stagger-4 { animation-delay: 120ms; }
+.stagger-5 { animation-delay: 150ms; }
+.stagger-6 { animation-delay: 180ms; }
+.stagger-7 { animation-delay: 210ms; }
+.stagger-8 { animation-delay: 240ms; }
+
+/* ── Tooltip ── */
+.tooltip {
+  position: relative;
+}
+
+.tooltip::after {
+  content: attr(data-tooltip);
+  position: absolute;
+  bottom: calc(100% + 6px);
+  left: 50%;
+  transform: translateX(-50%) scale(0.95);
+  background: var(--color-panel);
+  color: var(--color-text);
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 11px;
+  white-space: nowrap;
+  border: 1px solid var(--color-border);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 150ms ease, transform 150ms ease;
+  z-index: 100;
+}
+
+.tooltip:hover::after {
+  opacity: 1;
+  transform: translateX(-50%) scale(1);
+}
+
+/* ── xterm.js container fix ── */
+.xterm {
+  padding: 8px;
+}
+
+.xterm-viewport::-webkit-scrollbar {
+  width: 8px;
+}
+
+.xterm-viewport::-webkit-scrollbar-thumb {
+  background: var(--color-border);
+  border-radius: 4px;
+}
+
+/* ── Monaco Editor overrides ── */
+.monaco-editor .margin {
+  background: var(--color-panel) !important;
+}
+
+/* ── Toast container ── */
+.toast-container {
+  position: fixed;
+  bottom: 40px;
+  right: 16px;
+  display: flex;
+  flex-direction: column-reverse;
+  gap: 8px;
+  z-index: 9999;
+  pointer-events: none;
+}
+
+.toast-container > * {
+  pointer-events: auto;
+}
+
+/* ── Build Step Animations ── */
+.build-step-enter {
+  animation: fadeSlideIn 200ms ease forwards;
+}
+
+.build-step-complete {
+  animation: buildStepComplete 400ms ease;
+}
+
+.build-step-running {
+  animation: pulseGlow 2s infinite;
+}
+
+/* ── Thinking Dots ── */
+.thinking-dots span:nth-child(1) { animation-delay: 0ms; }
+.thinking-dots span:nth-child(2) { animation-delay: 150ms; }
+.thinking-dots span:nth-child(3) { animation-delay: 300ms; }
+
+/* ── Streaming Cursor ── */
+.streaming-cursor::after {
+  content: '▊';
+  color: var(--color-accent);
+  animation: streamingCursor 800ms infinite;
+  font-weight: normal;
+}
+
+/* ── Resizable Panel Transitions ── */
+.panel-transition {
+  transition: width 300ms ease, height 300ms ease, opacity 300ms ease;
+}
+
+/* ── Context Menu ── */
+.context-menu {
+  animation: scaleFadeIn 150ms ease;
+  transform-origin: top left;
+}
+
+/* ── Code Block ── */
+.code-block {
+  position: relative;
+  border-radius: 8px;
+  border: 1px solid var(--color-border);
+  background: var(--color-bg);
+  overflow: hidden;
+}
+
+.code-block-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 6px 12px;
+  background: rgba(45, 45, 78, 0.5);
+  border-bottom: 1px solid var(--color-border);
+  font-size: 12px;
+  color: var(--color-text-muted);
+}
+
+.code-block-content {
+  padding: 12px;
+  overflow-x: auto;
+  font-family: var(--font-mono);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+/* ── Chat Message Animations ── */
+.chat-message-enter {
+  animation: fadeSlideIn 200ms ease forwards;
+}
+
+/* ── File Tree Node ── */
+.file-tree-node {
+  transition: background-color 100ms ease;
+}
+
+.file-tree-node:hover {
+  background: rgba(124, 58, 237, 0.08);
+}
+
+.file-tree-node.selected {
+  background: rgba(124, 58, 237, 0.15);
+}
+
+/* ── Tab Styling ── */
+.editor-tab {
+  transition: background-color 150ms ease, border-color 150ms ease;
+}
+
+.editor-tab.active {
+  background: var(--color-panel);
+  border-bottom: 2px solid var(--color-accent);
+}
+
+/* ── Settings Panel ── */
+.settings-panel {
+  animation: slideInRight 300ms ease;
+}
+
+/* ── Gradient Text ── */
+.gradient-text {
+  background: linear-gradient(135deg, #7c3aed, #a78bfa, #c084fc);
+  background-size: 200% 200%;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  animation: gradientShift 3s ease infinite;
+}
+
+/* ── AI Avatar ── */
+.ai-avatar {
+  background: linear-gradient(135deg, #7c3aed, #3b82f6, #10b981);
+  background-size: 200% 200%;
+  animation: gradientShift 3s ease infinite;
+}

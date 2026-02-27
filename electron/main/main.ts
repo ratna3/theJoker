@@ -18,6 +18,7 @@ function setupModulePaths(): void {
     if (app.isPackaged) {
         const backendModules = path.join(process.resourcesPath, 'backend-modules');
         const Module = require('module');
+        const fs = require('fs');
         const originalResolveFilename = Module._resolveFilename;
         Module._resolveFilename = function (request: string, parent: any, isMain: boolean, options: any) {
             try {
@@ -26,12 +27,57 @@ function setupModulePaths(): void {
                 // If not found, try backend-modules
                 if (e.code === 'MODULE_NOT_FOUND') {
                     const backendPath = path.join(backendModules, request);
+                    // Check if this is an ESM package that needs CJS resolution
+                    try {
+                        const pkgPath = path.join(backendPath, 'package.json');
+                        if (fs.existsSync(pkgPath)) {
+                            const pkg = JSON.parse(fs.readFileSync(pkgPath, 'utf8'));
+                            if (pkg.type === 'module') {
+                                const cjsPath = findCjsEntry(pkg, backendPath, request);
+                                if (cjsPath) {
+                                    return originalResolveFilename.call(this, cjsPath, parent, isMain, options);
+                                }
+                            }
+                        }
+                    } catch { /* fall through to default resolution */ }
                     return originalResolveFilename.call(this, backendPath, parent, isMain, options);
                 }
                 throw e;
             }
         };
     }
+}
+
+/**
+ * Find a CommonJS entry point for an ESM package.
+ * Checks the "exports" field in package.json for CJS paths,
+ * then falls back to common CJS file naming conventions.
+ */
+function findCjsEntry(pkg: any, pkgDir: string, pkgName: string): string | null {
+    const fs = require('fs');
+    const exports = pkg.exports?.['.'];
+    if (!exports) return null;
+
+    // Try exports["."].default.require  (e.g. axios)
+    if (exports.default?.require) {
+        const cjs = path.join(pkgDir, exports.default.require);
+        if (fs.existsSync(cjs)) return cjs;
+    }
+    // Try exports["."].require  (e.g. chalk)
+    if (typeof exports.require === 'string') {
+        const cjs = path.join(pkgDir, exports.require);
+        if (fs.existsSync(cjs)) return cjs;
+    }
+    // Try common CJS file patterns
+    const baseName = pkgName.replace(/^@.*\//, '');
+    const candidates = [
+        path.join(pkgDir, `dist/node/${baseName}.cjs`),
+        path.join(pkgDir, `dist/${baseName}.cjs`),
+    ];
+    for (const c of candidates) {
+        if (fs.existsSync(c)) return c;
+    }
+    return null;
 }
 
 function createWindow(): void {
