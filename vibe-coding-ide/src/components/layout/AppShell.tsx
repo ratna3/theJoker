@@ -74,15 +74,15 @@ export const AppShell: React.FC = () => {
     }, [sidebarWidth, chatWidth, terminalHeight]);
 
     const handleSidebarResize = useCallback((delta: number) => {
-        setSidebarWidth(w => Math.max(150, Math.min(400, w + delta)));
+        setSidebarWidth((w: number) => Math.max(150, Math.min(400, w + delta)));
     }, []);
 
     const handleChatResize = useCallback((delta: number) => {
-        setChatWidth(w => Math.max(280, Math.min(500, w - delta)));
+        setChatWidth((w: number) => Math.max(280, Math.min(500, w - delta)));
     }, []);
 
     const handleTerminalResize = useCallback((delta: number) => {
-        setTerminalHeight(h => Math.max(120, Math.min(window.innerHeight * 0.6, h - delta)));
+        setTerminalHeight((h: number) => Math.max(120, Math.min(window.innerHeight * 0.6, h - delta)));
     }, []);
 
     return (
