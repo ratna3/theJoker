@@ -7,6 +7,7 @@ import { Sparkles, Folder } from 'lucide-react';
 import { BuildPipeline } from '../buildPipeline/BuildPipeline';
 import { TemplatePicker } from './TemplatePicker';
 import { useBuildStore, useFileStore, useTerminalStore, useSettingsStore } from '../../store';
+import jokerLogo from '../../assets/theJoker.png';
 
 const TEMPLATES = [
     { id: 'nextjs', name: 'Next.js', icon: '⚡' },
@@ -131,7 +132,7 @@ export const VibeCodingPrompt: React.FC = () => {
             {/* Header */}
             <div className="flex items-center gap-2 mb-4">
                 <div className="w-8 h-8 rounded-lg flex items-center justify-center overflow-hidden">
-                    <img src="/theJoker.png" alt="The Joker" className="w-8 h-8 object-contain" />
+                    <img src={jokerLogo} alt="The Joker" className="w-8 h-8 object-contain" />
                 </div>
                 <div>
                     <h2 className="text-[14px] font-bold gradient-text">The Joker — Vibe Coding</h2>

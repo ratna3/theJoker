@@ -6,6 +6,7 @@ import React from 'react';
 import { User, ThumbsUp, ThumbsDown, Copy, RefreshCw } from 'lucide-react';
 import { CodeBlock } from './CodeBlock';
 import type { ChatMessage as ChatMessageType } from '../../types';
+import jokerLogo from '../../assets/theJoker.png';
 
 interface Props {
     message: ChatMessageType;
@@ -107,7 +108,7 @@ export const ChatMessage: React.FC<Props> = ({ message }) => {
                     : 'ai-avatar text-white'
                 }
       `}>
-                {isUser ? <User size={14} /> : <img src="/theJoker.png" alt="The Joker" className="w-4 h-4 object-contain" />}
+                {isUser ? <User size={14} /> : <img src={jokerLogo} alt="The Joker" className="w-4 h-4 object-contain" />}
             </div>
 
             {/* Message Content */}

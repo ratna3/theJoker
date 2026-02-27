@@ -13,6 +13,7 @@ interface SettingsState extends AppSettings {
 }
 
 const defaults: AppSettings = {
+    setupCompleted: false,
     lmStudioUrl: 'http://localhost:1234',
     selectedModel: '',
     temperature: 0.7,

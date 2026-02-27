@@ -8,6 +8,7 @@ import { ChatMessage } from './ChatMessage';
 import { ChatInput } from './ChatInput';
 import { ThinkingIndicator } from './ThinkingIndicator';
 import { useChatStore, useEditorStore, useSettingsStore } from '../../store';
+import jokerLogo from '../../assets/theJoker.png';
 
 export const ChatPanel: React.FC = () => {
     const { messages, isStreaming, addMessage, appendToken, setStreaming, clearChat } = useChatStore();
@@ -92,7 +93,7 @@ export const ChatPanel: React.FC = () => {
             <div className="flex items-center justify-between px-3 py-2 border-b border-app-border flex-shrink-0">
                 <div className="flex items-center gap-2">
                     <div className="w-6 h-6 rounded-full flex items-center justify-center overflow-hidden">
-                        <img src="/theJoker.png" alt="The Joker" className="w-6 h-6 object-contain" />
+                        <img src={jokerLogo} alt="The Joker" className="w-6 h-6 object-contain" />
                     </div>
                     <span className="text-[13px] font-medium text-app-text">The Joker AI</span>
                     {selectedModel && (
@@ -119,7 +120,7 @@ export const ChatPanel: React.FC = () => {
                 {messages.length === 0 && (
                     <div className="flex flex-col items-center justify-center h-full text-center gap-3 opacity-50">
                         <div className="w-16 h-16 rounded-full flex items-center justify-center overflow-hidden">
-                            <img src="/theJoker.png" alt="The Joker" className="w-14 h-14 object-contain" />
+                            <img src={jokerLogo} alt="The Joker" className="w-14 h-14 object-contain" />
                         </div>
                         <p className="text-[13px] text-app-textMuted">Ask The Joker anything about your code</p>
                         <p className="text-[11px] text-app-textMuted">Type <span className="text-app-accent">/</span> for commands</p>

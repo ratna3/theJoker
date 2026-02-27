@@ -164,6 +164,8 @@ export interface LMStudioConfig {
 }
 
 export interface AppSettings {
+    // App State
+    setupCompleted: boolean;
     // AI
     lmStudioUrl: string;
     selectedModel: string;

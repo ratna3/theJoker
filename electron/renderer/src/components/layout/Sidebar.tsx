@@ -3,19 +3,23 @@
  */
 
 import React, { useState } from 'react';
-import { Files, MessageSquare, Palette, Settings, Rocket } from 'lucide-react';
+import { Files, MessageSquare, Palette, Settings, Rocket, Network } from 'lucide-react';
 import { FileExplorer } from '../fileExplorer/FileExplorer';
 import { SettingsPanel } from '../settings/SettingsPanel';
 import { VibeCodingPrompt } from '../vibeCoding/VibeCodingPrompt';
+import { ChatPanel } from '../chat/ChatPanel';
+import { ReconPanel } from '../recon/ReconPanel';
 
-type SidebarView = 'files' | 'chat' | 'vibe' | 'settings';
+type SidebarView = 'files' | 'vibe' | 'chat' | 'recon' | 'settings';
 
 export const Sidebar: React.FC = () => {
     const [activeView, setActiveView] = useState<SidebarView>('files');
 
     const navItems: { id: SidebarView; icon: React.ElementType; label: string }[] = [
         { id: 'files', icon: Files, label: 'Explorer' },
-        { id: 'vibe', icon: Rocket, label: 'Vibe Coding' },
+        { id: 'vibe', icon: Rocket, label: 'Vibe Coding IDE' },
+        { id: 'chat', icon: MessageSquare, label: 'Chat' },
+        { id: 'recon', icon: Network, label: 'Recon / Scrape' },
         { id: 'settings', icon: Settings, label: 'Settings' },
     ];
 
@@ -42,9 +46,11 @@ export const Sidebar: React.FC = () => {
             </div>
 
             {/* Panel Content */}
-            <div className="flex-1 min-w-0 overflow-hidden">
+            <div className="flex-1 min-w-0 overflow-hidden flex flex-col">
                 {activeView === 'files' && <FileExplorer />}
                 {activeView === 'vibe' && <VibeCodingPrompt />}
+                {activeView === 'chat' && <ChatPanel />}
+                {activeView === 'recon' && <ReconPanel />}
                 {activeView === 'settings' && <SettingsPanel />}
             </div>
         </div>
