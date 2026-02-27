@@ -1,12 +1,29 @@
 /**
- * Vibe Coding IDE — File System Manager
+ * The Joker — File System Manager
  * Handles file/directory operations and file watching with chokidar
  */
 
 import fs from 'fs';
 import path from 'path';
 import { exec } from 'child_process';
-import type { FileNode, FileChangeEvent } from '../src/types/index';
+
+// Inline types (to avoid cross-project import)
+interface FileNode {
+    name: string;
+    path: string;
+    type: 'file' | 'directory';
+    extension?: string;
+    size?: number;
+    modified?: string;
+    depth: number;
+    gitStatus?: string | null;
+    children?: FileNode[];
+}
+
+interface FileChangeEvent {
+    type: 'add' | 'change' | 'unlink' | 'addDir' | 'unlinkDir';
+    path: string;
+}
 
 let chokidar: any;
 try {

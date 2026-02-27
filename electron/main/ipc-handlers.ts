@@ -1,11 +1,14 @@
 /**
  * The Joker - Electron Desktop App
- * IPC Handlers — Bridge between renderer and backend
+ * IPC Handlers — Bridge between renderer and backend + IDE features
  */
 
-import { ipcMain, BrowserWindow, app } from 'electron';
+import { ipcMain, BrowserWindow, app, dialog, Menu, shell } from 'electron';
 import * as path from 'path';
+import * as os from 'os';
 import { isFirstRun, getConfig, saveConfig, loadEnvIntoProcess } from './config-store';
+import { TerminalManager } from './terminal-manager';
+import { FileSystemManager } from './filesystem-manager';
 
 /**
  * Resolve backend dist path:
@@ -23,6 +26,10 @@ let llmClient: any = null;
 let agent: any = null;
 let reconPipeline: any = null;
 let vibePipeline: any = null;
+
+// IDE managers
+const terminalManager = new TerminalManager();
+const fileSystemManager = new FileSystemManager();
 
 /**
  * Initialize the backend by importing compiled modules
@@ -121,7 +128,7 @@ function setupAgentEvents(mainWindow: BrowserWindow) {
 }
 
 /**
- * Register all IPC handlers
+ * Register all IPC handlers (existing + IDE)
  */
 export function registerIpcHandlers(mainWindow: BrowserWindow): void {
     // ── Config Handlers ──
@@ -186,12 +193,8 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): void {
         }
 
         try {
-            // Use the agent for processing
             const result = await agent.run(message);
-
-            // Send final answer
             mainWindow.webContents.send('chat:stream-end', result.finalAnswer);
-
             return {
                 success: true,
                 answer: result.finalAnswer,
@@ -282,24 +285,260 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): void {
         }
     });
     ipcMain.handle('window:close', () => mainWindow.close());
+
+    // ═══════════════════════════════════════════════════════
+    // ══ IDE Feature IPC Handlers ══════════════════════════
+    // ═══════════════════════════════════════════════════════
+
+    // ── Terminal IPC ──
+    ipcMain.handle('terminal-create', async (_event, id: string, cwd?: string) => {
+        try {
+            terminalManager.create(id, cwd || os.homedir());
+            terminalManager.onData(id, (data: string) => {
+                mainWindow.webContents.send(`terminal-data-${id}`, data);
+            });
+            terminalManager.onExit(id, (exitCode: number) => {
+                mainWindow.webContents.send(`terminal-exit-${id}`, exitCode);
+            });
+            return { success: true };
+        } catch (err: any) {
+            return { success: false, error: err.message };
+        }
+    });
+
+    ipcMain.handle('terminal-write', async (_event, id: string, data: string) => {
+        terminalManager.write(id, data);
+    });
+
+    ipcMain.handle('terminal-resize', async (_event, id: string, cols: number, rows: number) => {
+        terminalManager.resize(id, cols, rows);
+    });
+
+    ipcMain.handle('terminal-destroy', async (_event, id: string) => {
+        terminalManager.destroy(id);
+    });
+
+    // ── File System IPC ──
+    ipcMain.handle('fs-read-dir', async (_event, dirPath: string) => {
+        return fileSystemManager.readDirectory(dirPath);
+    });
+
+    ipcMain.handle('fs-read-file', async (_event, filePath: string) => {
+        return fileSystemManager.readFile(filePath);
+    });
+
+    ipcMain.handle('fs-write-file', async (_event, filePath: string, content: string) => {
+        return fileSystemManager.writeFile(filePath, content);
+    });
+
+    ipcMain.handle('fs-delete', async (_event, itemPath: string) => {
+        return fileSystemManager.deleteItem(itemPath);
+    });
+
+    ipcMain.handle('fs-rename', async (_event, oldPath: string, newPath: string) => {
+        return fileSystemManager.renameItem(oldPath, newPath);
+    });
+
+    ipcMain.handle('fs-create', async (_event, parentPath: string, name: string, type: 'file' | 'directory') => {
+        return fileSystemManager.createItem(parentPath, name, type);
+    });
+
+    ipcMain.handle('fs-watch-start', async (_event, dirPath: string) => {
+        fileSystemManager.watchDirectory(dirPath, (event) => {
+            mainWindow.webContents.send('fs-change', event);
+        });
+    });
+
+    ipcMain.handle('fs-watch-stop', async () => {
+        fileSystemManager.stopWatching();
+    });
+
+    // ── AI Streaming IPC (for IDE chat) ──
+    ipcMain.handle('ai-stream-start', async (_event, config: any) => {
+        try {
+            if (!llmClient) initializeBackend(mainWindow);
+            // Use the backend's LLM client for streaming
+            const url = config.baseUrl || getConfig().LM_STUDIO_BASE_URL;
+            const model = config.model || getConfig().LM_STUDIO_MODEL;
+            const messages = config.messages || [];
+
+            const response = await fetch(`${url}/v1/chat/completions`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    model,
+                    messages,
+                    stream: true,
+                    temperature: config.temperature ?? 0.7,
+                    max_tokens: config.maxTokens ?? 4096,
+                }),
+            });
+
+            if (!response.ok) {
+                mainWindow.webContents.send('ai-error', `LM Studio error: ${response.statusText}`);
+                return;
+            }
+
+            const reader = response.body?.getReader();
+            if (!reader) return;
+
+            const decoder = new TextDecoder();
+            let fullResponse = '';
+
+            while (true) {
+                const { done, value } = await reader.read();
+                if (done) break;
+
+                const chunk = decoder.decode(value, { stream: true });
+                const lines = chunk.split('\n').filter((l: string) => l.startsWith('data: '));
+
+                for (const line of lines) {
+                    const data = line.slice(6).trim();
+                    if (data === '[DONE]') continue;
+                    try {
+                        const parsed = JSON.parse(data);
+                        const token = parsed.choices?.[0]?.delta?.content || '';
+                        if (token) {
+                            fullResponse += token;
+                            mainWindow.webContents.send('ai-token', token);
+                        }
+                    } catch { /* skip parse errors */ }
+                }
+            }
+
+            mainWindow.webContents.send('ai-complete', fullResponse);
+        } catch (err: any) {
+            mainWindow.webContents.send('ai-error', err.message);
+        }
+    });
+
+    ipcMain.handle('ai-stream-stop', async () => {
+        // AbortController would be needed for a full implementation
+    });
+
+    ipcMain.handle('ai-plan-project', async (_event, prompt: string, template: string) => {
+        try {
+            if (!llmClient) initializeBackend(mainWindow);
+            const url = getConfig().LM_STUDIO_BASE_URL;
+            const model = getConfig().LM_STUDIO_MODEL;
+
+            const response = await fetch(`${url}/v1/chat/completions`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    model,
+                    messages: [{
+                        role: 'system',
+                        content: 'You are a project planning assistant. Respond with JSON only.',
+                    }, {
+                        role: 'user',
+                        content: `Plan a ${template} project for: "${prompt}". Respond with JSON: { "projectName": "string", "description": "string", "files": [{"path":"string","description":"string"}], "dependencies": ["string"] }`,
+                    }],
+                    temperature: 0.3,
+                    max_tokens: 2048,
+                }),
+            });
+
+            const data = await response.json();
+            const content = data.choices?.[0]?.message?.content || '';
+            const jsonMatch = content.match(/\{[\s\S]*\}/);
+            if (jsonMatch) {
+                const plan = JSON.parse(jsonMatch[0]);
+                return { success: true, plan };
+            }
+            return { success: false, error: 'Failed to parse plan' };
+        } catch (err: any) {
+            return { success: false, error: err.message };
+        }
+    });
+
+    ipcMain.handle('ai-generate-files', async (_event, plan: any) => {
+        try {
+            return { success: true, files: {} };
+        } catch (err: any) {
+            return { success: false, error: err.message };
+        }
+    });
+
+    // ── Project IPC ──
+    ipcMain.handle('project-create', async (_event, config: any) => {
+        try {
+            const fs = require('fs');
+            const projectPath = path.join(config.targetDir, config.name);
+            if (!fs.existsSync(projectPath)) {
+                fs.mkdirSync(projectPath, { recursive: true });
+            }
+            return { success: true, projectPath };
+        } catch (err: any) {
+            return { success: false, error: err.message };
+        }
+    });
+
+    ipcMain.handle('install-dependencies', async (_event, projectPath: string, terminalId: string) => {
+        try {
+            terminalManager.write(terminalId, 'npm install\n');
+            return { success: true, packageManager: 'npm' };
+        } catch (err: any) {
+            return { success: false, error: err.message };
+        }
+    });
+
+    // ── Dialog IPC ──
+    ipcMain.handle('open-folder-dialog', async () => {
+        const result = await dialog.showOpenDialog(mainWindow, {
+            properties: ['openDirectory'],
+        });
+        if (!result.canceled && result.filePaths.length > 0) {
+            return result.filePaths[0];
+        }
+        return null;
+    });
+
+    // ── System IPC ──
+    ipcMain.handle('get-home-dir', () => os.homedir());
+    ipcMain.handle('get-platform', () => process.platform);
+
+    ipcMain.handle('get-lmstudio-models', async (_event, baseUrl: string) => {
+        try {
+            const response = await fetch(`${baseUrl}/v1/models`);
+            const data = await response.json();
+            return (data.data || []).map((m: any) => m.id);
+        } catch {
+            return [];
+        }
+    });
+
+    ipcMain.handle('test-lmstudio-connection', async (_event, baseUrl: string) => {
+        try {
+            const response = await fetch(`${baseUrl}/v1/models`);
+            return { connected: response.ok };
+        } catch {
+            return { connected: false };
+        }
+    });
+
+    // ── External links ──
+    ipcMain.handle('open-external', async (_event, url: string) => {
+        shell.openExternal(url);
+    });
 }
 
 /**
- * Cleanup backend resources
+ * Cleanup backend resources + IDE resources
  */
 export function cleanupBackend(): void {
     try {
-        if (agent) {
-            agent.cancel();
-        }
-        if (llmClient) {
-            llmClient.destroy();
-        }
-        if (vibePipeline) {
-            vibePipeline.cleanup().catch(() => { });
-        }
+        if (agent) agent.cancel();
+        if (llmClient) llmClient.destroy();
+        if (vibePipeline) vibePipeline.cleanup().catch(() => { });
         const { getMemory } = getBackendModules();
         const memory = getMemory();
         memory.persist();
     } catch { /* ignore cleanup errors */ }
+
+    // Cleanup IDE resources
+    try {
+        terminalManager.destroyAll();
+        fileSystemManager.stopWatching();
+    } catch { /* ignore */ }
 }

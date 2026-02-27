@@ -1,16 +1,17 @@
 {
     "name": "thejoker-desktop",
     "version": "1.1.1",
-    "description": "The Joker - Premium AI Desktop Terminal",
+    "description": "The Joker - AI-Powered Vibe Coding IDE & Desktop Terminal",
     "main": "dist/main/main.js",
     "author": "Ratna Kirti",
     "license": "SEE LICENSE IN LICENSE.md",
     "scripts": {
         "start": "npm run build && electron .",
         "build": "tsc",
+        "build:renderer": "cd renderer && npm install && npm run build",
         "dev": "tsc && electron .",
-        "make": "npm run build && electron-builder --win",
-        "make:dir": "npm run build && electron-builder --win --dir"
+        "make": "npm run build:renderer && npm run build && electron-builder --win",
+        "make:dir": "npm run build:renderer && npm run build && electron-builder --win --dir"
     },
     "build": {
         "appId": "com.ratnakirti.thejoker",
@@ -21,7 +22,7 @@
         },
         "files": [
             "dist/**/*",
-            "renderer/**/*",
+            "renderer/dist/**/*",
             "assets/**/*"
         ],
         "extraResources": [
@@ -70,6 +71,8 @@
         "typescript": "^5.9.3"
     },
     "dependencies": {
-        "electron-store": "^10.0.0"
+        "chokidar": "^3.6.0",
+        "electron-store": "^10.0.0",
+        "node-pty": "^1.0.0"
     }
 }
