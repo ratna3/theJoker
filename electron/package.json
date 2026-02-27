@@ -17,13 +17,19 @@
         "appId": "com.ratnakirti.thejoker",
         "productName": "The Joker",
         "copyright": "Copyright © 2024-2026 Ratna Kirti. All rights reserved.",
+        "npmRebuild": false,
+        "nodeGypRebuild": false,
         "directories": {
             "output": "out"
         },
         "files": [
             "dist/**/*",
             "renderer/dist/**/*",
-            "assets/**/*"
+            "assets/**/*",
+            "node_modules/**/*"
+        ],
+        "asarUnpack": [
+            "node_modules/node-pty/**/*"
         ],
         "extraResources": [
             {
