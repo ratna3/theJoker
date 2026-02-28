@@ -65,6 +65,28 @@ contextBridge.exposeInMainWorld('jokerAPI', {
         ipcRenderer.on('vibe:progress', (_: any, data: any) => callback(data));
     },
 
+    // ── Vibe IDE: Terminal ──
+    vibeTerminalWrite: (data: string) => ipcRenderer.send('vibe:terminal-write', data),
+    onVibeTerminalData: (callback: (data: string) => void) => {
+        ipcRenderer.on('vibe:terminal-data', (_: any, data: string) => callback(data));
+    },
+    vibeTerminalResize: (cols: number, rows: number) => ipcRenderer.send('vibe:terminal-resize', cols, rows),
+
+    // ── Vibe IDE: File System ──
+    vibeReadFile: (filePath: string) => ipcRenderer.invoke('vibe:read-file', filePath),
+    vibeListDir: (dirPath: string) => ipcRenderer.invoke('vibe:list-dir', dirPath),
+    onVibeFileChanged: (callback: (data: any) => void) => {
+        ipcRenderer.on('vibe:file-changed', (_: any, data: any) => callback(data));
+    },
+    onVibeProjectPath: (callback: (projectPath: string) => void) => {
+        ipcRenderer.on('vibe:project-path', (_: any, projectPath: string) => callback(projectPath));
+    },
+
+    // ── Vibe IDE: Thinking / Activity ──
+    onVibeThinking: (callback: (data: any) => void) => {
+        ipcRenderer.on('vibe:thinking', (_: any, data: any) => callback(data));
+    },
+
     // Window Controls
     minimizeWindow: () => ipcRenderer.invoke('window:minimize'),
     maximizeWindow: () => ipcRenderer.invoke('window:maximize'),

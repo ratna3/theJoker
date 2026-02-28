@@ -6,6 +6,10 @@
 import { ipcMain, BrowserWindow, app, dialog, Menu, shell } from 'electron';
 import * as path from 'path';
 import * as os from 'os';
+import * as http from 'http';
+import * as https from 'https';
+import * as fs from 'fs';
+import { spawn, ChildProcess } from 'child_process';
 import { isFirstRun, getConfig, saveConfig, loadEnvIntoProcess } from './config-store';
 import { TerminalManager } from './terminal-manager';
 import { FileSystemManager } from './filesystem-manager';
@@ -26,6 +30,91 @@ let llmClient: any = null;
 let agent: any = null;
 let reconPipeline: any = null;
 let vibePipeline: any = null;
+let vibeTerminalShell: ChildProcess | null = null;
+let vibeProjectPath: string | null = null;
+
+/**
+ * Spawn an interactive terminal shell in the project directory.
+ * This gives users the ability to run commands manually (npm, git, etc.)
+ */
+function spawnVibeTerminal(projectPath: string, mainWindow: BrowserWindow): void {
+    // Kill any existing terminal
+    if (vibeTerminalShell) {
+        try { vibeTerminalShell.kill(); } catch { /* ignore */ }
+        vibeTerminalShell = null;
+    }
+
+    const isWin = process.platform === 'win32';
+    const shellCmd = isWin ? (process.env.ComSpec || 'C:\\Windows\\System32\\cmd.exe') : (process.env.SHELL || '/bin/bash');
+    const shellArgs = isWin ? [] : [];
+
+    try {
+        vibeTerminalShell = spawn(shellCmd, shellArgs, {
+            cwd: projectPath,
+            shell: true,
+            stdio: ['pipe', 'pipe', 'pipe'],
+            env: { ...process.env, FORCE_COLOR: '1' },
+        });
+
+        vibeTerminalShell.stdout?.on('data', (data: Buffer) => {
+            mainWindow.webContents.send('vibe:terminal-data', data.toString());
+        });
+
+        vibeTerminalShell.stderr?.on('data', (data: Buffer) => {
+            mainWindow.webContents.send('vibe:terminal-data', data.toString());
+        });
+
+        vibeTerminalShell.on('exit', (code) => {
+            mainWindow.webContents.send('vibe:terminal-data', `\r\n[Terminal exited with code ${code}]\r\n`);
+            vibeTerminalShell = null;
+        });
+
+        vibeTerminalShell.on('error', (err) => {
+            mainWindow.webContents.send('vibe:terminal-data', `\r\n[Terminal error: ${err.message}]\r\n`);
+            vibeTerminalShell = null;
+        });
+    } catch (err: any) {
+        mainWindow.webContents.send('vibe:terminal-data', `\r\n[Failed to start terminal: ${err.message}]\r\n`);
+    }
+}
+
+/**
+ * Direct HTTP connection test using Node.js built-in http/https.
+ * Does NOT require backend modules or axios — safe for packaged builds.
+ */
+function directTestConnection(baseUrl: string): Promise<{ connected: boolean; models: string[]; error?: string }> {
+    return new Promise((resolve) => {
+        try {
+            const parsed = new URL('/v1/models', baseUrl);
+            const mod = parsed.protocol === 'https:' ? https : http;
+
+            const req = mod.get(parsed.toString(), { timeout: 8000 }, (res) => {
+                let data = '';
+                res.on('data', (chunk: Buffer | string) => { data += chunk; });
+                res.on('end', () => {
+                    try {
+                        const json = JSON.parse(data);
+                        const models = (json.data || []).map((m: any) => m.id);
+                        resolve({ connected: true, models });
+                    } catch {
+                        resolve({ connected: true, models: [] });
+                    }
+                });
+            });
+
+            req.on('error', (err: Error) => {
+                resolve({ connected: false, models: [], error: err.message });
+            });
+
+            req.on('timeout', () => {
+                req.destroy();
+                resolve({ connected: false, models: [], error: 'Connection timed out' });
+            });
+        } catch (err: any) {
+            resolve({ connected: false, models: [], error: err.message });
+        }
+    });
+}
 
 // IDE managers
 const terminalManager = new TerminalManager();
@@ -142,24 +231,10 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): void {
     });
 
     // ── Connection Handlers ──
+    // Direct HTTP test — avoids loading backend modules (no axios dependency)
     ipcMain.handle('connection:test', async (_event, baseUrl?: string) => {
-        try {
-            const { LMStudioClient } = getBackendModules();
-            const testClient = new LMStudioClient({
-                baseUrl: baseUrl || getConfig().LM_STUDIO_BASE_URL,
-            });
-            const connected = await testClient.testConnection();
-            let models: string[] = [];
-            if (connected) {
-                try {
-                    models = await testClient.getModelNames();
-                } catch { /* ignore */ }
-            }
-            testClient.destroy();
-            return { connected, models };
-        } catch (error: any) {
-            return { connected: false, error: error.message, models: [] };
-        }
+        const url = baseUrl || getConfig().LM_STUDIO_BASE_URL;
+        return directTestConnection(url);
     });
 
     ipcMain.handle('connection:status', () => {
@@ -246,8 +321,34 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): void {
             vibePipeline.on('pipeline:error', (data: any) => {
                 mainWindow.webContents.send('vibe:progress', { type: 'error', ...data });
             });
+            vibePipeline.on('file:written', (filePath: string) => {
+                mainWindow.webContents.send('vibe:file-changed', { type: 'created', filePath });
+            });
+            vibePipeline.on('install:output', (line: string) => {
+                mainWindow.webContents.send('vibe:terminal-data', line + '\r\n');
+            });
+            // Listen for project path being set (emitted after scaffold)
+            vibePipeline.on('project:path', (projectPath: string) => {
+                vibeProjectPath = projectPath;
+                mainWindow.webContents.send('vibe:project-path', projectPath);
+                // Spawn interactive terminal in project dir
+                spawnVibeTerminal(projectPath, mainWindow);
+            });
 
-            const result = await vibePipeline.run(prompt);
+            // Use user Documents folder for projects (not process.cwd() which fails in packaged apps)
+            const projectsDir = path.join(app.getPath('documents'), 'TheJoker', 'projects');
+            // Ensure directory exists
+            if (!fs.existsSync(projectsDir)) {
+                fs.mkdirSync(projectsDir, { recursive: true });
+            }
+
+            const result = await vibePipeline.run(prompt, projectsDir);
+
+            // Track project path for file explorer
+            if (result.projectPath) {
+                vibeProjectPath = result.projectPath;
+            }
+
             return { success: result.success, ...result };
         } catch (error: any) {
             return { success: false, error: error.message };
@@ -267,12 +368,63 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): void {
     });
 
     ipcMain.handle('tool:vibe-stop', async () => {
+        // Cleanup terminal
+        if (vibeTerminalShell) {
+            try { vibeTerminalShell.kill(); } catch { /* ignore */ }
+            vibeTerminalShell = null;
+        }
         if (vibePipeline && vibePipeline.isLiveSession()) {
             await vibePipeline.cleanup();
             vibePipeline = null;
             return { success: true };
         }
         return { success: false, error: 'No session running' };
+    });
+
+    // ── Vibe IDE: File System Handlers ──
+    ipcMain.handle('vibe:read-file', async (_event, filePath: string) => {
+        try {
+            const content = fs.readFileSync(filePath, 'utf-8');
+            return { success: true, content };
+        } catch (err: any) {
+            return { success: false, error: err.message };
+        }
+    });
+
+    ipcMain.handle('vibe:list-dir', async (_event, dirPath: string) => {
+        try {
+            const targetPath = dirPath || vibeProjectPath;
+            if (!targetPath) return { success: false, error: 'No project path' };
+
+            const entries = fs.readdirSync(targetPath, { withFileTypes: true });
+            const items = entries
+                .filter(e => !e.name.startsWith('.') && e.name !== 'node_modules')
+                .sort((a, b) => {
+                    // Folders first, then files
+                    if (a.isDirectory() && !b.isDirectory()) return -1;
+                    if (!a.isDirectory() && b.isDirectory()) return 1;
+                    return a.name.localeCompare(b.name);
+                })
+                .map(e => ({
+                    name: e.name,
+                    path: path.join(targetPath, e.name),
+                    isDir: e.isDirectory(),
+                }));
+            return { success: true, items, rootPath: targetPath };
+        } catch (err: any) {
+            return { success: false, error: err.message };
+        }
+    });
+
+    // ── Vibe IDE: Terminal Handlers ──
+    ipcMain.on('vibe:terminal-write', (_event, data: string) => {
+        if (vibeTerminalShell && vibeTerminalShell.stdin) {
+            vibeTerminalShell.stdin.write(data);
+        }
+    });
+
+    ipcMain.on('vibe:terminal-resize', (_event, _cols: number, _rows: number) => {
+        // Resize not supported with basic spawn; requires node-pty for proper resize
     });
 
     // ── Window Controls ──

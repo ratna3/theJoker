@@ -12,7 +12,8 @@ let mainWindow: BrowserWindow | null = null;
 
 /**
  * In packaged mode, backend modules need access to the parent project's node_modules.
- * We set MODULE_PATHS so require() can find dependencies like axios, cheerio, etc.
+ * We add the backend-modules directory to NODE_PATH so require() resolves
+ * packages properly (respecting their package.json "exports" field).
  */
 function setupModulePaths(): void {
     if (app.isPackaged) {

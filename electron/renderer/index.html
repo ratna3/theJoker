@@ -2,35 +2,74 @@
 <html lang="en">
 
 <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta http-equiv="Content-Security-Policy"
-        content="default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' blob:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob:; connect-src 'self' http://localhost:* ws://localhost:*;">
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link
-        href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap"
-        rel="stylesheet">
-    <title>The Joker — Vibe Coding IDE</title>
-    <style>
-        body {
-            margin: 0;
-            padding: 0;
-            overflow: hidden;
-            background: #0d0d1a;
-            font-family: 'Inter', sans-serif;
-        }
-
-        #root {
-            width: 100vw;
-            height: 100vh;
-        }
-    </style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; script-src 'self';">
+  <title>The Joker</title>
+  <link rel="stylesheet" href="styles/globals.css">
+  <link rel="stylesheet" href="styles/setup-wizard.css">
+  <link rel="stylesheet" href="styles/sidebar.css">
+  <link rel="stylesheet" href="styles/chat.css">
+  <link rel="stylesheet" href="styles/tools.css">
 </head>
 
 <body>
-    <div id="root"></div>
-    <script type="module" src="/src/main.tsx"></script>
+  <!-- Custom Titlebar -->
+  <div class="titlebar">
+    <div class="titlebar-title">
+      <span class="logo">🎭</span>
+      <span>The Joker</span>
+    </div>
+    <div class="titlebar-controls">
+      <button class="titlebar-btn" id="btn-minimize" title="Minimize">─</button>
+      <button class="titlebar-btn" id="btn-maximize" title="Maximize">□</button>
+      <button class="titlebar-btn close" id="btn-close" title="Close">✕</button>
+    </div>
+  </div>
+
+  <!-- App Container -->
+  <div class="app-container">
+    <!-- Sidebar -->
+    <nav class="sidebar" id="sidebar">
+      <div class="sidebar-logo">🎭</div>
+      <div class="sidebar-nav">
+        <button class="sidebar-item active" data-page="chat">
+          <span class="icon">💬</span>
+          <span class="label">Chat</span>
+        </button>
+        <button class="sidebar-item" data-page="recon">
+          <span class="icon">🔍</span>
+          <span class="label">Recon</span>
+        </button>
+        <button class="sidebar-item" data-page="vibe">
+          <span class="icon">🎨</span>
+          <span class="label">Vibe Coding</span>
+        </button>
+        <button class="sidebar-item" data-page="settings">
+          <span class="icon">⚙️</span>
+          <span class="label">Settings</span>
+        </button>
+      </div>
+      <div class="sidebar-footer">
+        <div class="sidebar-status">
+          <span class="status-dot disconnected" id="status-dot"></span>
+          <span class="sidebar-model" id="status-model">Not connected</span>
+        </div>
+      </div>
+    </nav>
+
+    <!-- Main Content Area -->
+    <div class="main-content" id="main-content">
+      <!-- Pages injected here by app.js -->
+    </div>
+  </div>
+
+  <!-- Setup Wizard Overlay (shown on first run) -->
+  <div class="setup-overlay hidden" id="setup-wizard">
+    <!-- Wizard content injected by setup-wizard.js -->
+  </div>
+
+  <script src="app.js"></script>
 </body>
 
 </html>

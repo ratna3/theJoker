@@ -118,6 +118,9 @@ export class VibeCodingPipeline extends EventEmitter {
             const basePath = outputDir || path.resolve(process.cwd(), 'projects');
             this.projectPath = path.join(basePath, spec.name);
 
+            // Emit project path early so the renderer can start loading files
+            this.emit('project:path', this.projectPath);
+
             // Step 2: Scaffold the project
             this.emit('step:start', 'scaffold');
             this.emit('step:detail', { step: 'scaffold', message: `📁 Scaffolding ${spec.framework} project: ${spec.name}` });
@@ -127,7 +130,7 @@ export class VibeCodingPipeline extends EventEmitter {
                 language: spec.language,
                 features: spec.features,
                 styling: spec.styling,
-                path: this.projectPath,
+                path: basePath,
             };
             const scaffoldResult = await this.scaffolder.create(projectSpec, { skipInstall: true });
             this.emit('step:complete', 'scaffold');
@@ -146,26 +149,40 @@ export class VibeCodingPipeline extends EventEmitter {
             await this.writeFiles(this.projectPath, generatedCode);
             this.emit('step:complete', 'write');
 
-            // Step 5: Install dependencies
+            // Step 5: Install dependencies (non-fatal — project still usable if this fails)
             this.emit('step:start', 'install');
             this.emit('step:detail', { step: 'install', message: '📦 Installing dependencies...' });
-            await this.installDeps(this.projectPath);
-            this.emit('step:complete', 'install');
+            try {
+                await this.installDeps(this.projectPath);
+                this.emit('step:complete', 'install');
+            } catch (installErr: any) {
+                errors.push(`Install: ${installErr.message}`);
+                this.emit('pipeline:error', { error: `Install failed: ${installErr.message}. You can install manually via the terminal.`, step: 'install' });
+                this.emit('install:output', `\n⚠ ${installErr.message}\nYou can install dependencies manually in the terminal below.\n`);
+                this.emit('step:complete', 'install');
+            }
 
-            // Step 6: Start dev server
+            // Step 6: Start dev server (non-fatal — project files exist regardless)
             this.emit('step:start', 'serve');
             this.emit('step:detail', { step: 'serve', message: '🚀 Starting dev server...' });
-            const serverInfo = await this.devServer.start(this.projectPath, {
-                framework: spec.framework,
-                openBrowser: true,
-            });
-            devServerUrl = serverInfo.url;
-            this.liveSession = true;
-            this.emit('step:complete', 'serve');
+            try {
+                const serverInfo = await this.devServer.start(this.projectPath, {
+                    framework: spec.framework,
+                    openBrowser: true,
+                });
+                devServerUrl = serverInfo.url;
+                this.liveSession = true;
+                this.emit('step:complete', 'serve');
+            } catch (serveErr: any) {
+                errors.push(`Serve: ${serveErr.message}`);
+                this.emit('pipeline:error', { error: `Dev server failed to start: ${serveErr.message}. You can start it manually.`, step: 'serve' });
+                this.emit('step:detail', { step: 'serve', message: `⚠ Dev server failed — try "npm start" or "npm run dev" in the terminal` });
+                this.emit('step:complete', 'serve');
+            }
 
             const totalTime = Date.now() - startTime;
             const result: VibeCodingResult = {
-                success: true,
+                success: true, // Files were generated — install/serve errors are non-fatal
                 projectPath: this.projectPath,
                 projectName: spec.name,
                 framework: spec.framework,
@@ -338,14 +355,18 @@ export class VibeCodingPipeline extends EventEmitter {
     // ============================================
 
     /**
-     * Run npm install in the project directory
+     * Try a single npm install strategy. Returns true on success.
      */
-    async installDeps(projectPath: string): Promise<void> {
-        return new Promise<void>((resolve, reject) => {
-            const child = spawn('npm', ['install'], {
+    private tryInstall(projectPath: string, args: string[], label: string): Promise<boolean> {
+        return new Promise<boolean>((resolve) => {
+            const npmCmd = process.platform === 'win32' ? 'npm.cmd' : 'npm';
+            this.emit('install:output', `\n> ${label}: ${npmCmd} ${args.join(' ')}\n`);
+
+            const child = spawn(npmCmd, args, {
                 cwd: projectPath,
                 shell: true,
                 stdio: ['pipe', 'pipe', 'pipe'],
+                env: { ...process.env, npm_config_loglevel: 'error' },
             });
 
             let stderr = '';
@@ -356,28 +377,116 @@ export class VibeCodingPipeline extends EventEmitter {
 
             child.stderr?.on('data', (data: Buffer) => {
                 stderr += data.toString();
+                this.emit('install:output', data.toString().trim());
             });
 
             child.on('close', (code) => {
                 if (code === 0) {
-                    logger.info('[VibeCoder] Dependencies installed successfully');
-                    resolve();
+                    logger.info(`[VibeCoder] ${label} succeeded`);
+                    resolve(true);
                 } else {
-                    logger.error(`[VibeCoder] npm install failed (code ${code}): ${stderr.slice(0, 500)}`);
-                    reject(new Error(`npm install failed with code ${code}`));
+                    logger.warn(`[VibeCoder] ${label} failed (code ${code}): ${stderr.slice(0, 300)}`);
+                    resolve(false);
                 }
             });
 
             child.on('error', (err) => {
-                reject(new Error(`npm install error: ${err.message}`));
+                logger.warn(`[VibeCoder] ${label} error: ${err.message}`);
+                resolve(false);
             });
 
-            // Timeout after 120 seconds
+            // Timeout after 90 seconds per attempt
             setTimeout(() => {
                 try { child.kill(); } catch { /* ignore */ }
-                reject(new Error('npm install timed out (120s)'));
-            }, 120000);
+                logger.warn(`[VibeCoder] ${label} timed out`);
+                resolve(false);
+            }, 90000);
         });
+    }
+
+    /**
+     * Run npm install with multiple fallback strategies.
+     * On each failure, emits "Let's try a different approach" and retries.
+     * If all strategies fail, continues gracefully instead of aborting.
+     */
+    async installDeps(projectPath: string): Promise<void> {
+        // First verify package.json exists
+        const pkgPath = path.join(projectPath, 'package.json');
+        try {
+            await fs.access(pkgPath);
+        } catch {
+            this.emit('install:output', '⚠ No package.json found — skipping dependency install');
+            this.emit('step:detail', { step: 'install', message: '⚠ No package.json — skipping install (project may still work)' });
+            return;
+        }
+
+        const strategies: Array<{ args: string[]; label: string }> = [
+            { args: ['install'], label: 'npm install' },
+            { args: ['install', '--legacy-peer-deps'], label: 'npm install --legacy-peer-deps' },
+            { args: ['install', '--force'], label: 'npm install --force' },
+        ];
+
+        for (let i = 0; i < strategies.length; i++) {
+            const strategy = strategies[i];
+
+            if (i > 0) {
+                this.emit('install:output', `\n🔄 Let's try a different approach...\n`);
+                this.emit('step:detail', { step: 'install', message: `🔄 Let's try a different approach: ${strategy.label}` });
+
+                // Delete node_modules and package-lock before retry
+                try {
+                    const lockFile = path.join(projectPath, 'package-lock.json');
+                    const nodeModules = path.join(projectPath, 'node_modules');
+                    await fs.rm(lockFile, { force: true }).catch(() => {});
+                    await fs.rm(nodeModules, { recursive: true, force: true }).catch(() => {});
+                } catch { /* ignore cleanup errors */ }
+            }
+
+            const success = await this.tryInstall(projectPath, strategy.args, strategy.label);
+            if (success) {
+                this.emit('install:output', '\n✓ Dependencies installed successfully!\n');
+                return;
+            }
+        }
+
+        // All strategies failed — try npx as last resort
+        this.emit('install:output', '\n🔄 Let\'s try one more approach...\n');
+        this.emit('step:detail', { step: 'install', message: '🔄 Trying npx as a fallback...' });
+
+        const npxSuccess = await new Promise<boolean>((resolve) => {
+            const npxCmd = process.platform === 'win32' ? 'npx.cmd' : 'npx';
+            const child = spawn(npxCmd, ['npm', 'install', '--yes'], {
+                cwd: projectPath,
+                shell: true,
+                stdio: ['pipe', 'pipe', 'pipe'],
+            });
+
+            child.stdout?.on('data', (data: Buffer) => {
+                this.emit('install:output', data.toString().trim());
+            });
+            child.stderr?.on('data', (data: Buffer) => {
+                this.emit('install:output', data.toString().trim());
+            });
+            child.on('close', (code) => resolve(code === 0));
+            child.on('error', () => resolve(false));
+
+            setTimeout(() => {
+                try { child.kill(); } catch { /* ignore */ }
+                resolve(false);
+            }, 90000);
+        });
+
+        if (npxSuccess) {
+            this.emit('install:output', '\n✓ Dependencies installed via npx!\n');
+            return;
+        }
+
+        // Everything failed — continue gracefully
+        this.emit('install:output', '\n⚠ Could not install dependencies automatically.');
+        this.emit('install:output', 'You can install them manually by running: npm install');
+        this.emit('install:output', 'The project files have been created and are ready to use.\n');
+        this.emit('step:detail', { step: 'install', message: '⚠ Auto-install failed — you can run "npm install" manually in the terminal below' });
+        // Don't throw — let the pipeline continue
     }
 
     // ============================================

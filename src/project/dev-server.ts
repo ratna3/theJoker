@@ -52,11 +52,18 @@ export class DevServerManager extends EventEmitter {
      * Find an available port starting from the preferred port
      */
     async findPort(preferred: number = 3000): Promise<number> {
-        // eslint-disable-next-line @typescript-eslint/no-var-requires
-        const detectPort = require('detect-port') as (port: number) => Promise<number>;
-        const port = await detectPort(preferred);
-        logger.info(`[DevServer] Available port: ${port}`);
-        return port;
+        try {
+            // detect-port v2 may export as default or as a function
+            // eslint-disable-next-line @typescript-eslint/no-var-requires
+            const mod = require('detect-port');
+            const detectPort = (typeof mod === 'function' ? mod : mod.default) as (port: number) => Promise<number>;
+            const port = await detectPort(preferred);
+            logger.info(`[DevServer] Available port: ${port}`);
+            return port;
+        } catch (err: any) {
+            logger.warn(`[DevServer] detect-port failed (${err.message}), using preferred port ${preferred}`);
+            return preferred;
+        }
     }
 
     /**
