@@ -10,9 +10,10 @@ import 'xterm/css/xterm.css';
 
 interface Props {
     sessionId: string;
+    cwd?: string;
 }
 
-export const TerminalTab: React.FC<Props> = ({ sessionId }) => {
+export const TerminalTab: React.FC<Props> = ({ sessionId, cwd }) => {
     const containerRef = useRef<HTMLDivElement>(null);
     const terminalRef = useRef<Terminal | null>(null);
     const fitAddonRef = useRef<FitAddon | null>(null);
@@ -24,13 +25,13 @@ export const TerminalTab: React.FC<Props> = ({ sessionId }) => {
 
         const term = new Terminal({
             theme: {
-                background: '#0d0d1a',
+                background: '#0a0e0c',
                 foreground: '#e2e8f0',
-                cursor: '#7c3aed',
-                cursorAccent: '#0d0d1a',
-                selectionBackground: '#7c3aed40',
-                black: '#1a1a2e',
-                brightBlack: '#2d2d4e',
+                cursor: '#00d47b',
+                cursorAccent: '#0a0e0c',
+                selectionBackground: '#00d47b40',
+                black: '#151b18',
+                brightBlack: '#243028',
                 red: '#ef4444',
                 brightRed: '#f87171',
                 green: '#10b981',
@@ -69,7 +70,7 @@ export const TerminalTab: React.FC<Props> = ({ sessionId }) => {
         fitAddonRef.current = fitAddon;
 
         // Create PTY process
-        window.electronAPI?.terminal?.create(sessionId).then((result) => {
+        window.electronAPI?.terminal?.create(sessionId, cwd || undefined).then((result) => {
             if (!result.success) {
                 term.writeln(`\x1b[31mFailed to start terminal: ${result.error}\x1b[0m`);
             }

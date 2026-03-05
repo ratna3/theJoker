@@ -74,7 +74,7 @@ export const TerminalPanel: React.FC = () => {
                         key={session.id}
                         className={`absolute inset-0 ${session.id === activeSessionId ? 'block' : 'hidden'}`}
                     >
-                        <TerminalTab sessionId={session.id} />
+                        <TerminalTab sessionId={session.id} cwd={session.cwd} />
                     </div>
                 ))}
             </div>

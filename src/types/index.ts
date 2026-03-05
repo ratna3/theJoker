@@ -366,6 +366,23 @@ export interface LogConfig {
 // Configuration Types
 // ============================================
 
+export interface VectorStoreConfig {
+  enabled: boolean;
+  storagePath: string;
+  autoIndex: boolean;
+  maxResults: number;
+  minScore: number;
+  chunkSize: number;
+  chunkOverlap: number;
+}
+
+export interface MCPConfig {
+  enabled: boolean;
+  configPath: string;
+  autoConnect: boolean;
+  timeout: number;
+}
+
 export interface AppConfig {
   llm: LLMConfig;
   agent: AgentConfig;
@@ -373,4 +390,6 @@ export interface AppConfig {
   terminal: TerminalConfig;
   log: LogConfig;
   airllm: AirLLMConfig;
+  vectorStore: VectorStoreConfig;
+  mcp: MCPConfig;
 }

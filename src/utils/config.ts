@@ -5,7 +5,7 @@
 
 import dotenv from 'dotenv';
 import path from 'path';
-import { AppConfig, LLMConfig, AgentConfig, ScraperConfig, TerminalConfig, LogConfig, AirLLMConfig } from '../types';
+import { AppConfig, LLMConfig, AgentConfig, ScraperConfig, TerminalConfig, LogConfig, AirLLMConfig, VectorStoreConfig, MCPConfig } from '../types';
 
 // Load environment variables
 dotenv.config();
@@ -106,6 +106,29 @@ export const airllmConfig: AirLLMConfig = {
 };
 
 /**
+ * Vector Store Configuration
+ */
+export const vectorStoreConfig: VectorStoreConfig = {
+  enabled: getEnvBool('VECTOR_STORE_ENABLED', true),
+  storagePath: getEnv('VECTOR_STORE_PATH', path.resolve(__dirname, '../../.joker-data')),
+  autoIndex: getEnvBool('VECTOR_STORE_AUTO_INDEX', true),
+  maxResults: getEnvNumber('VECTOR_STORE_MAX_RESULTS', 10),
+  minScore: parseFloat(getEnv('VECTOR_STORE_MIN_SCORE', '0.3')),
+  chunkSize: getEnvNumber('VECTOR_STORE_CHUNK_SIZE', 500),
+  chunkOverlap: getEnvNumber('VECTOR_STORE_CHUNK_OVERLAP', 50),
+};
+
+/**
+ * MCP Configuration
+ */
+export const mcpConfig: MCPConfig = {
+  enabled: getEnvBool('MCP_ENABLED', true),
+  configPath: getEnv('MCP_CONFIG_PATH', ''),
+  autoConnect: getEnvBool('MCP_AUTO_CONNECT', true),
+  timeout: getEnvNumber('MCP_TIMEOUT', 30000),
+};
+
+/**
  * Complete Application Configuration
  */
 export const config: AppConfig = {
@@ -115,6 +138,8 @@ export const config: AppConfig = {
   terminal: terminalConfig,
   log: logConfig,
   airllm: airllmConfig,
+  vectorStore: vectorStoreConfig,
+  mcp: mcpConfig,
 };
 
 /**

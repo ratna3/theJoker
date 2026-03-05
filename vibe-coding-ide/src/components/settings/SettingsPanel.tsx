@@ -175,8 +175,8 @@ const Toggle: React.FC<{ label: string; checked: boolean; onChange: (v: boolean)
 const inputStyles = `
 .input-field {
   width: 100%;
-  background: #0d0d1a;
-  border: 1px solid #2d2d4e;
+  background: #0a0e0c;
+  border: 1px solid #243028;
   border-radius: 6px;
   padding: 6px 8px;
   font-size: 12px;
@@ -184,18 +184,18 @@ const inputStyles = `
   outline: none;
   transition: border-color 150ms;
 }
-.input-field:focus { border-color: #7c3aed; }
+.input-field:focus { border-color: #00d47b; }
 .btn-sm {
   padding: 4px 10px;
   font-size: 11px;
-  border: 1px solid #2d2d4e;
+  border: 1px solid #243028;
   border-radius: 6px;
-  background: #1a1a2e;
+  background: #151b18;
   color: #e2e8f0;
   cursor: pointer;
   transition: all 150ms;
 }
-.btn-sm:hover { border-color: #7c3aed; background: #7c3aed10; }
+.btn-sm:hover { border-color: #00d47b; background: #00d47b10; }
 `;
 
 // Inject styles

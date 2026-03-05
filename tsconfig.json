@@ -29,7 +29,9 @@
       "@types/*": ["types/*"],
       "@coding/*": ["coding/*"],
       "@project/*": ["project/*"],
-      "@filesystem/*": ["filesystem/*"]
+      "@filesystem/*": ["filesystem/*"],
+      "@vectorstore/*": ["vectorstore/*"],
+      "@mcp/*": ["mcp/*"]
     }
   },
   "include": ["src/**/*"],

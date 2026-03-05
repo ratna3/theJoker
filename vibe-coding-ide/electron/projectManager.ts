@@ -206,7 +206,7 @@ body {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: #0d0d1a;
+  background: #0a0e0c;
   color: #e2e8f0;
 }
 main { text-align: center; }

@@ -8,18 +8,18 @@ export default {
         extend: {
             colors: {
                 app: {
-                    bg: '#0d0d1a',
-                    sidebar: '#12122a',
-                    panel: '#1a1a2e',
-                    accent: '#7c3aed',
-                    accentHover: '#6d28d9',
-                    accentMuted: '#7c3aed20',
+                    bg: '#0a0e0c',
+                    sidebar: '#0e1310',
+                    panel: '#151b18',
+                    accent: '#00d47b',
+                    accentHover: '#00b868',
+                    accentMuted: '#00d47b20',
                     success: '#10b981',
                     error: '#ef4444',
                     warning: '#f59e0b',
                     text: '#e2e8f0',
                     textMuted: '#64748b',
-                    border: '#2d2d4e',
+                    border: '#243028',
                 }
             },
             fontFamily: {
@@ -56,8 +56,8 @@ export default {
                     '51%, 100%': { opacity: '0' },
                 },
                 pulseGlow: {
-                    '0%, 100%': { boxShadow: '0 0 0 0 rgba(124, 58, 237, 0)' },
-                    '50%': { boxShadow: '0 0 12px 4px rgba(124, 58, 237, 0.3)' },
+                    '0%, 100%': { boxShadow: '0 0 0 0 rgba(0, 212, 123, 0)' },
+                    '50%': { boxShadow: '0 0 12px 4px rgba(0, 212, 123, 0.3)' },
                 },
                 gradientShift: {
                     '0%': { backgroundPosition: '0% 50%' },

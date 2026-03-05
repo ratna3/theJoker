@@ -57,7 +57,7 @@ function createWindow(): void {
         minHeight: 600,
         title: 'The Joker — Vibe Coding IDE',
         frame: true,
-        backgroundColor: '#0d0d1a',
+        backgroundColor: '#0a0e0c',
         icon: path.join(__dirname, '../public/theJoker.ico'),
         webPreferences: {
             preload: path.join(__dirname, 'preload.js'),

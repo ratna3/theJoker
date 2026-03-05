@@ -8,12 +8,14 @@ import { LMStudioClient, lmStudioClient } from './llm/client.js';
 import { AirLLMBridge } from './llm/airllm-bridge.js';
 import { SYSTEM_PROMPT_AGENT } from './llm/prompts.js';
 import { logger } from './utils/logger.js';
-import { config, llmConfig, airllmConfig, paths } from './utils/config.js';
+import { config, llmConfig, airllmConfig, paths, vectorStoreConfig, mcpConfig } from './utils/config.js';
 import { ChatMessage } from './types/index.js';
 import { JokerAgent, getAgent, AgentState, getMemory } from './agents/index.js';
 import { ReconPipeline } from './tools/recon.js';
 import { JokerDashboard } from './cli/dashboard.js';
 import { VibeCodingPipeline } from './agents/vibe-coder.js';
+import { initVectorStore, getVectorStoreInstance } from './vectorstore/index.js';
+import { MCPManager, addMCPServer, removeMCPServer, loadMCPConfig } from './mcp/index.js';
 
 /**
  * Main application class
@@ -28,6 +30,7 @@ class TheJoker {
   private agentMode: boolean = true; // Use autonomous agent by default
   private dashboardMode: boolean = false; // TUI dashboard mode
   private airllmBridge: AirLLMBridge | null = null; // AirLLM sidecar bridge
+  private mcpManager: MCPManager | null = null; // MCP server manager
 
   constructor() {
     this.terminal = terminal;
@@ -135,6 +138,64 @@ class TheJoker {
     this.terminal.print(`Model: ${activeModel}`, 'muted');
     this.terminal.print(`Backend: ${activeBackendLabel}`, 'muted');
     this.terminal.print(`Mode: ${this.agentMode ? 'Autonomous Agent' : 'Simple Chat'}`, 'muted');
+
+    // ── Initialize Vector Store (Codebase Memory) ─────────
+    if (vectorStoreConfig.enabled) {
+      try {
+        const fs = await import('fs');
+        if (!fs.existsSync(vectorStoreConfig.storagePath)) {
+          fs.mkdirSync(vectorStoreConfig.storagePath, { recursive: true });
+        }
+        initVectorStore(vectorStoreConfig.storagePath, llmConfig.baseUrl);
+        this.terminal.print('Codebase Memory: enabled', 'muted');
+
+        // Auto-index CWD if configured
+        if (vectorStoreConfig.autoIndex) {
+          const instance = getVectorStoreInstance();
+          if (instance) {
+            // Load persisted store first
+            instance.store.load();
+            // Run background index (don't block startup)
+            instance.indexer.indexDirectory(process.cwd(), true).then((stats) => {
+              logger.info('Auto-index complete', stats);
+            }).catch((err) => {
+              logger.debug('Auto-index skipped', { error: (err as Error).message });
+            });
+          }
+        }
+      } catch (error) {
+        logger.debug('Vector store init skipped', { error: (error as Error).message });
+      }
+    }
+
+    // ── Initialize MCP (Model Context Protocol) ───────────
+    if (mcpConfig.enabled) {
+      try {
+        this.mcpManager = new MCPManager();
+        await this.mcpManager.initialize();
+        const servers = this.mcpManager.getConnectedServers();
+        if (servers.length > 0) {
+          this.terminal.print(`MCP: ${servers.length} server(s) connected`, 'muted');
+
+          // Register discovered MCP tools in agent's tool registry
+          if (this.agent) {
+            const mcpTools = this.mcpManager.getJokerTools();
+            const registry = (this.agent as any).executor?.toolRegistry;
+            if (registry) {
+              for (const tool of mcpTools) {
+                registry.register(tool);
+              }
+              logger.info('MCP tools registered', { count: mcpTools.length });
+            }
+          }
+        } else {
+          this.terminal.print('MCP: no servers configured (add via .joker-mcp.json)', 'muted');
+        }
+      } catch (error) {
+        logger.debug('MCP init skipped', { error: (error as Error).message });
+      }
+    }
+
     this.terminal.print('\nType "help" for available commands\n', 'info');
 
     return true;
@@ -772,6 +833,243 @@ class TheJoker {
         return { success: true };
       },
     });
+
+    // ============================================
+    // 🧠 Codebase Memory Commands — Vector Store
+    // ============================================
+    commandRegistry.register({
+      name: 'index',
+      aliases: ['codebase-index', 'reindex'],
+      description: 'Index the current directory into codebase memory for semantic search',
+      category: 'tools',
+      execute: async (args) => {
+        const dir = args && args.length > 0 ? args[0] : process.cwd();
+        const instance = getVectorStoreInstance();
+        if (!instance) {
+          this.terminal.print('Vector store not initialized. Set VECTOR_STORE_ENABLED=true', 'error');
+          return { success: false };
+        }
+
+        this.terminal.print(`\n🧠 Indexing codebase: ${dir}`, 'info');
+        this.terminal.startSpinner('Scanning files...');
+
+        try {
+          const stats = await instance.indexer.indexDirectory(dir, true);
+          this.terminal.spinnerSuccess('Indexing complete');
+          this.terminal.print(`   Files scanned: ${stats.totalFiles}`, 'muted');
+          this.terminal.print(`   Chunks indexed: ${stats.totalChunks}`, 'muted');
+          this.terminal.print(`   Skipped (unchanged): ${stats.skippedFiles}`, 'muted');
+          this.terminal.print(`   Duration: ${stats.durationMs}ms\n`, 'muted');
+          return { success: true, data: stats };
+        } catch (error) {
+          this.terminal.spinnerFail('Indexing failed');
+          this.terminal.print(`Error: ${(error as Error).message}`, 'error');
+          return { success: false };
+        }
+      },
+    });
+
+    commandRegistry.register({
+      name: 'search-code',
+      aliases: ['cs', 'code-search'],
+      description: 'Search the indexed codebase using natural language',
+      category: 'tools',
+      execute: async (args) => {
+        const query = args && args.length > 0 ? args.join(' ') : null;
+        if (!query) {
+          this.terminal.print('Usage: search-code <query>', 'warning');
+          this.terminal.print('Example: search-code function that handles user authentication', 'muted');
+          return { success: false };
+        }
+
+        const instance = getVectorStoreInstance();
+        if (!instance) {
+          this.terminal.print('Codebase not indexed. Run "index" first.', 'warning');
+          return { success: false };
+        }
+
+        try {
+          const embedResult = await instance.embeddings.embed(query);
+          const queryVec = embedResult.vector;
+          const results = instance.store.search(queryVec, vectorStoreConfig.maxResults, vectorStoreConfig.minScore);
+
+          if (results.length === 0) {
+            this.terminal.print('No matching code found. Try a different query or run "index" to update.', 'warning');
+            return { success: true, data: [] };
+          }
+
+          this.terminal.print(`\n🔍 Found ${results.length} result(s) for "${query}"\n`, 'info');
+          for (const r of results) {
+            const score = Math.round(r.score * 100);
+            this.terminal.print(`  📄 ${r.document.metadata.filePath}`, 'success');
+            this.terminal.print(`     ${r.document.metadata.type}: ${r.document.metadata.name || 'unnamed'} (L${r.document.metadata.startLine}-${r.document.metadata.endLine}) — ${score}% match`, 'muted');
+            const snippet = r.document.content.substring(0, 150).replace(/\n/g, ' ');
+            this.terminal.print(`     ${snippet}...`, 'muted');
+            this.terminal.print('', 'muted');
+          }
+
+          return { success: true, data: results.length };
+        } catch (error) {
+          this.terminal.print(`Search error: ${(error as Error).message}`, 'error');
+          return { success: false };
+        }
+      },
+    });
+
+    // ============================================
+    // 🔌 MCP Commands — Model Context Protocol
+    // ============================================
+    commandRegistry.register({
+      name: 'mcp',
+      aliases: ['mcp-status'],
+      description: 'Show MCP server status and connected tools',
+      category: 'tools',
+      execute: async (args) => {
+        const subCommand = args && args.length > 0 ? args[0] : 'status';
+
+        switch (subCommand) {
+          case 'status': {
+            if (!this.mcpManager) {
+              this.terminal.print('MCP not initialized. Set MCP_ENABLED=true', 'warning');
+              return { success: false };
+            }
+            const status = this.mcpManager.getStatus();
+            if (status.length === 0) {
+              this.terminal.print('\n🔌 MCP: No servers configured', 'warning');
+              this.terminal.print('   Add servers via .joker-mcp.json or "mcp add" command\n', 'muted');
+            } else {
+              this.terminal.print('\n🔌 MCP Server Status:', 'info');
+              for (const s of status) {
+                const icon = s.connected ? '✅' : '❌';
+                this.terminal.print(`   ${icon} ${s.name} — ${s.tools} tools, ${s.resources} resources`, s.connected ? 'success' : 'error');
+              }
+              this.terminal.print('', 'muted');
+            }
+            return { success: true };
+          }
+
+          case 'list': {
+            if (!this.mcpManager) {
+              this.terminal.print('MCP not initialized', 'warning');
+              return { success: false };
+            }
+            const allTools = this.mcpManager.getAllTools();
+            if (allTools.length === 0) {
+              this.terminal.print('No MCP tools available', 'muted');
+            } else {
+              this.terminal.print(`\n🔧 ${allTools.length} MCP Tool(s):\n`, 'info');
+              for (const t of allTools) {
+                this.terminal.print(`   [${t.server}] ${t.tool.name}`, 'success');
+                if (t.tool.description) {
+                  this.terminal.print(`     ${t.tool.description}`, 'muted');
+                }
+              }
+              this.terminal.print('', 'muted');
+            }
+            return { success: true };
+          }
+
+          case 'add': {
+            const name = args[1];
+            const transport = args[2] as 'stdio' | 'http';
+            const commandOrUrl = args.slice(3).join(' ');
+
+            if (!name || !transport || !commandOrUrl) {
+              this.terminal.print('Usage: mcp add <name> <stdio|http> <command|url>', 'warning');
+              this.terminal.print('Examples:', 'muted');
+              this.terminal.print('  mcp add filesystem stdio npx -y @modelcontextprotocol/server-filesystem /path', 'muted');
+              this.terminal.print('  mcp add remote http http://localhost:3001/mcp', 'muted');
+              return { success: false };
+            }
+
+            const serverConfig: any = {
+              name,
+              transport,
+              autoConnect: true,
+            };
+
+            if (transport === 'stdio') {
+              const parts = commandOrUrl.split(' ');
+              serverConfig.command = parts[0];
+              serverConfig.args = parts.slice(1);
+            } else {
+              serverConfig.url = commandOrUrl;
+            }
+
+            addMCPServer(serverConfig);
+            this.terminal.print(`✅ Server "${name}" added to .joker-mcp.json`, 'success');
+
+            // Try connecting
+            if (this.mcpManager) {
+              try {
+                await this.mcpManager.connectServer(serverConfig);
+                const client = this.mcpManager.getClient(name);
+                this.terminal.print(`   Connected — ${client?.tools.length || 0} tools discovered`, 'success');
+
+                // Register new tools
+                if (this.agent && client) {
+                  const { MCPManager: _M } = require('./mcp/index.js');
+                  const bridge = new MCPManager();
+                  const tools = bridge.getJokerTools();
+                  // Just use the existing manager's tools
+                  const mcpTools = this.mcpManager.getJokerTools();
+                  const registry = (this.agent as any).executor?.toolRegistry;
+                  if (registry) {
+                    for (const tool of mcpTools) {
+                      if (tool.name.includes(name)) {
+                        registry.register(tool);
+                      }
+                    }
+                  }
+                }
+              } catch (error) {
+                this.terminal.print(`   ⚠️ Saved but could not connect: ${(error as Error).message}`, 'warning');
+              }
+            }
+            return { success: true };
+          }
+
+          case 'remove': {
+            const serverName = args[1];
+            if (!serverName) {
+              this.terminal.print('Usage: mcp remove <name>', 'warning');
+              return { success: false };
+            }
+            if (this.mcpManager) {
+              await this.mcpManager.disconnectServer(serverName);
+            }
+            removeMCPServer(serverName);
+            this.terminal.print(`✅ Server "${serverName}" removed`, 'success');
+            return { success: true };
+          }
+
+          case 'connect': {
+            const sName = args[1];
+            if (!sName || !this.mcpManager) {
+              this.terminal.print('Usage: mcp connect <name>', 'warning');
+              return { success: false };
+            }
+            const cfg = loadMCPConfig();
+            const sc = cfg.servers.find(s => s.name === sName);
+            if (!sc) {
+              this.terminal.print(`Server "${sName}" not found in config`, 'error');
+              return { success: false };
+            }
+            try {
+              await this.mcpManager.connectServer(sc);
+              this.terminal.print(`✅ Connected to "${sName}"`, 'success');
+            } catch (error) {
+              this.terminal.print(`❌ Connection failed: ${(error as Error).message}`, 'error');
+            }
+            return { success: true };
+          }
+
+          default:
+            this.terminal.print('MCP subcommands: status, list, add, remove, connect', 'warning');
+            return { success: false };
+        }
+      },
+    });
   }
 
   /**
@@ -781,6 +1079,18 @@ class TheJoker {
     // Persist agent memory
     const memory = getMemory();
     memory.persist();
+
+    // Persist vector store
+    const vsInstance = getVectorStoreInstance();
+    if (vsInstance) {
+      vsInstance.store.save();
+    }
+
+    // Disconnect MCP servers
+    if (this.mcpManager) {
+      this.mcpManager.disconnectAll().catch(() => {});
+      this.mcpManager = null;
+    }
 
     // Stop AirLLM sidecar if running
     if (this.airllmBridge) {

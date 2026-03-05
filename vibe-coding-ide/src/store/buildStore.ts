@@ -21,9 +21,10 @@ interface BuildState {
     isBuilding: boolean;
     currentProjectPath: string | null;
     overallProgress: number;
+    devServerUrl: string | null;
     startBuild: (projectPath?: string) => void;
     updateStep: (id: string, update: Partial<BuildStep>) => void;
-    completeBuild: () => void;
+    completeBuild: (devServerUrl?: string) => void;
     failBuild: (stepId: string, error: string) => void;
     reset: () => void;
 }
@@ -33,6 +34,7 @@ export const useBuildStore = create<BuildState>((set, get) => ({
     isBuilding: false,
     currentProjectPath: null,
     overallProgress: 0,
+    devServerUrl: null,
 
     startBuild: (projectPath) => {
         set({
@@ -40,6 +42,7 @@ export const useBuildStore = create<BuildState>((set, get) => ({
             isBuilding: true,
             currentProjectPath: projectPath || null,
             overallProgress: 0,
+            devServerUrl: null,
         });
     },
 
@@ -64,7 +67,7 @@ export const useBuildStore = create<BuildState>((set, get) => ({
         });
     },
 
-    completeBuild: () => set({ isBuilding: false, overallProgress: 100 }),
+    completeBuild: (devServerUrl) => set({ isBuilding: false, overallProgress: 100, devServerUrl: devServerUrl || null }),
 
     failBuild: (stepId, error) => {
         const { updateStep } = get();
@@ -72,5 +75,5 @@ export const useBuildStore = create<BuildState>((set, get) => ({
         set({ isBuilding: false });
     },
 
-    reset: () => set({ steps: [], isBuilding: false, currentProjectPath: null, overallProgress: 0 }),
+    reset: () => set({ steps: [], isBuilding: false, currentProjectPath: null, overallProgress: 0, devServerUrl: null }),
 }));

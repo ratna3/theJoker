@@ -1162,6 +1162,109 @@ export function createDefaultRegistry(): ToolRegistry {
     },
   });
 
+  // ── Codebase Memory (Vector Store) Tools ──────────────
+  registry.register({
+    name: 'codebase_search',
+    description: 'Search the indexed codebase using natural language. Returns the most relevant code snippets matching the query.',
+    parameters: [
+      { name: 'query', type: 'string', required: true, description: 'Natural language search query' },
+      { name: 'maxResults', type: 'number', required: false, default: 5, description: 'Maximum results to return' },
+      { name: 'filePath', type: 'string', required: false, description: 'Optional: filter results to a specific file path' },
+    ],
+    execute: async (params) => {
+      const { getVectorStoreInstance } = require('../vectorstore');
+      const instance = getVectorStoreInstance();
+      if (!instance) {
+        return { success: false, error: 'Vector store not initialized. Run "index" command first.' };
+      }
+      const { store, embeddings } = instance;
+      const embedResult = await embeddings.embed(String(params.query));
+      const maxResults = Number(params.maxResults) || 5;
+
+      let results: any[];
+      if (params.filePath) {
+        results = store.searchByFile(String(params.filePath));
+        results = results.slice(0, maxResults);
+      } else {
+        results = store.search(embedResult.vector, maxResults);
+      }
+
+      return {
+        success: true,
+        count: results.length,
+        results: results.map((r: any) => ({
+          file: r.document.metadata.filePath,
+          name: r.document.metadata.name,
+          type: r.document.metadata.type,
+          lines: `${r.document.metadata.startLine}-${r.document.metadata.endLine}`,
+          score: Math.round(r.score * 1000) / 1000,
+          snippet: r.document.content.substring(0, 300),
+        })),
+      };
+    },
+  });
+
+  registry.register({
+    name: 'codebase_index',
+    description: 'Index a directory into the codebase memory for semantic search. Required before codebase_search works.',
+    parameters: [
+      { name: 'directory', type: 'string', required: false, default: '.', description: 'Directory to index (default: current directory)' },
+      { name: 'incremental', type: 'boolean', required: false, default: true, description: 'Only re-index changed files' },
+    ],
+    execute: async (params) => {
+      const { getVectorStoreInstance } = require('../vectorstore');
+      const instance = getVectorStoreInstance();
+      if (!instance) {
+        return { success: false, error: 'Vector store not initialized' };
+      }
+      const { indexer } = instance;
+      const dir = String(params.directory || '.');
+      const incremental = params.incremental !== false;
+      const stats = await indexer.indexDirectory(dir, incremental);
+      return { success: true, ...stats };
+    },
+  });
+
+  registry.register({
+    name: 'codebase_context',
+    description: 'Get relevant codebase context for a task description. Useful for understanding existing code before making changes.',
+    parameters: [
+      { name: 'task', type: 'string', required: true, description: 'Description of the task or question' },
+      { name: 'maxResults', type: 'number', required: false, default: 8 },
+    ],
+    execute: async (params) => {
+      const { getVectorStoreInstance } = require('../vectorstore');
+      const instance = getVectorStoreInstance();
+      if (!instance) {
+        return { success: false, error: 'Vector store not initialized. Run "index" command first.' };
+      }
+      const { store, embeddings } = instance;
+      const embedResult = await embeddings.embed(String(params.task));
+      const maxResults = Number(params.maxResults) || 8;
+      const results = store.search(embedResult.vector, maxResults);
+
+      // Group results by file
+      const byFile = new Map<string, Array<{ name: string; type: string; lines: string; snippet: string }>>();
+      for (const r of results) {
+        const file = r.document.metadata.filePath;
+        if (!byFile.has(file)) byFile.set(file, []);
+        byFile.get(file)!.push({
+          name: r.document.metadata.name || 'unknown',
+          type: r.document.metadata.type || 'chunk',
+          lines: `${r.document.metadata.startLine}-${r.document.metadata.endLine}`,
+          snippet: r.document.content.substring(0, 200),
+        });
+      }
+
+      const context: Array<{ file: string; chunks: Array<{ name: string; type: string; lines: string; snippet: string }> }> = [];
+      for (const [file, chunks] of byFile) {
+        context.push({ file, chunks });
+      }
+
+      return { success: true, filesFound: context.length, context };
+    },
+  });
+
   return registry;
 }
 

@@ -213,6 +213,13 @@ declare global {
                 write: (id: string, data: string) => Promise<void>;
                 resize: (id: string, cols: number, rows: number) => Promise<void>;
                 destroy: (id: string) => Promise<void>;
+                execute: (options: { command: string; cwd: string; sessionId?: string; timeout?: number }) =>
+                    Promise<{ success: boolean; output: string; exitCode: number; commandId: string; error?: string }>;
+                launchDevServer: (options: { command: string; cwd: string; sessionId?: string; port: number; timeout?: number }) =>
+                    Promise<{ success: boolean; url: string; error?: string }>;
+                checkCommandStatus: (commandId: string) =>
+                    Promise<{ found: boolean; running: boolean; exitCode: number | null; output?: string }>;
+                killCommand: (commandId: string) => Promise<{ success: boolean; error?: string }>;
                 onData: (id: string, callback: (data: string) => void) => () => void;
                 onExit: (id: string, callback: (exitCode: number) => void) => () => void;
             };
@@ -230,8 +237,8 @@ declare global {
             ai: {
                 streamStart: (config: any) => Promise<void>;
                 streamStop: () => Promise<void>;
-                planProject: (prompt: string, template: string) => Promise<any>;
-                generateFiles: (plan: any) => Promise<any>;
+                planProject: (prompt: string, template: string, baseUrl?: string) => Promise<any>;
+                generateFiles: (plan: any, baseUrl?: string) => Promise<any>;
                 onToken: (callback: (token: string) => void) => () => void;
                 onComplete: (callback: (response: string) => void) => () => void;
                 onError: (callback: (error: string) => void) => () => void;

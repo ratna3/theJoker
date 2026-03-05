@@ -2,12 +2,17 @@
  * BuildPipeline — Visual build progress display with timeline
  */
 
-import React from 'react';
+import React, { useCallback } from 'react';
+import { ExternalLink } from 'lucide-react';
 import { useBuildStore } from '../../store';
 import { BuildStep } from './BuildStep';
 
 export const BuildPipeline: React.FC = () => {
-    const { steps, isBuilding, overallProgress } = useBuildStore();
+    const { steps, isBuilding, overallProgress, devServerUrl } = useBuildStore();
+
+    const handleOpenUrl = useCallback((url: string) => {
+        window.electronAPI?.system?.openExternal(url);
+    }, []);
 
     if (steps.length === 0) return null;
 
@@ -33,12 +38,23 @@ export const BuildPipeline: React.FC = () => {
 
             {/* Completion Banner */}
             {!isBuilding && overallProgress === 100 && (
-                <div className="mt-2 p-3 bg-app-success/10 border border-app-success/30 rounded-lg flex items-center gap-2 animate-fade-slide-in">
-                    <span className="text-app-success text-lg">🎉</span>
-                    <div>
-                        <p className="text-[13px] font-medium text-app-success">Build Complete!</p>
-                        <p className="text-[11px] text-app-textMuted">Your project is ready. Check the terminal for the dev server URL.</p>
+                <div className="mt-2 p-3 bg-app-success/10 border border-app-success/30 rounded-lg animate-fade-slide-in">
+                    <div className="flex items-center gap-2">
+                        <span className="text-app-success text-lg">🎉</span>
+                        <div className="flex-1">
+                            <p className="text-[13px] font-medium text-app-success">Build Complete!</p>
+                            <p className="text-[11px] text-app-textMuted">Your project is ready and the dev server is running.</p>
+                        </div>
                     </div>
+                    {devServerUrl && (
+                        <button
+                            onClick={() => handleOpenUrl(devServerUrl)}
+                            className="mt-2 w-full flex items-center justify-center gap-2 px-3 py-2 bg-app-accent/15 border border-app-accent/40 rounded-md text-[12px] text-app-accent hover:bg-app-accent/25 hover:border-app-accent/60 transition-all cursor-pointer"
+                        >
+                            <ExternalLink size={14} />
+                            <span>Open in Browser — {devServerUrl}</span>
+                        </button>
+                    )}
                 </div>
             )}
 

@@ -16,6 +16,7 @@
         "appId": "com.ratnakirti.thejoker",
         "productName": "The Joker",
         "copyright": "Copyright © 2024-2026 Ratna Kirti. All rights reserved.",
+        "npmRebuild": false,
         "directories": {
             "output": "out"
         },
@@ -70,6 +71,8 @@
         "typescript": "^5.9.3"
     },
     "dependencies": {
-        "electron-store": "^10.0.0"
+        "chokidar": "^5.0.0",
+        "electron-store": "^10.0.0",
+        "node-pty": "^1.1.0"
     }
 }

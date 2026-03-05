@@ -4,18 +4,18 @@
 
 /* ── CSS Custom Properties ── */
 :root {
-  --color-bg: #0d0d1a;
-  --color-sidebar: #12122a;
-  --color-panel: #1a1a2e;
-  --color-accent: #7c3aed;
-  --color-accent-hover: #6d28d9;
-  --color-accent-muted: rgba(124, 58, 237, 0.125);
+  --color-bg: #0a0e0c;
+  --color-sidebar: #0e1310;
+  --color-panel: #151b18;
+  --color-accent: #00d47b;
+  --color-accent-hover: #00b868;
+  --color-accent-muted: rgba(0, 212, 123, 0.125);
   --color-success: #10b981;
   --color-error: #ef4444;
   --color-warning: #f59e0b;
   --color-text: #e2e8f0;
   --color-text-muted: #64748b;
-  --color-border: #2d2d4e;
+  --color-border: #243028;
   --font-mono: 'JetBrains Mono', 'Fira Code', 'Cascadia Code', monospace;
   --font-sans: 'Inter', system-ui, -apple-system, sans-serif;
 }
@@ -56,7 +56,7 @@ html, body, #root {
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #3d3d5e;
+  background: #344038;
 }
 
 ::-webkit-scrollbar-corner {
@@ -65,7 +65,7 @@ html, body, #root {
 
 /* ── Selection ── */
 ::selection {
-  background: rgba(124, 58, 237, 0.4);
+  background: rgba(0, 212, 123, 0.4);
   color: white;
 }
 
@@ -91,7 +91,7 @@ html, body, #root {
 
 /* ── Glass Effect ── */
 .glass {
-  background: rgba(26, 26, 46, 0.8);
+  background: rgba(21, 27, 24, 0.8);
   backdrop-filter: blur(12px);
   border: 1px solid var(--color-border);
 }
@@ -221,7 +221,7 @@ html, body, #root {
   justify-content: space-between;
   align-items: center;
   padding: 6px 12px;
-  background: rgba(45, 45, 78, 0.5);
+  background: rgba(36, 48, 40, 0.5);
   border-bottom: 1px solid var(--color-border);
   font-size: 12px;
   color: var(--color-text-muted);
@@ -246,11 +246,11 @@ html, body, #root {
 }
 
 .file-tree-node:hover {
-  background: rgba(124, 58, 237, 0.08);
+  background: rgba(0, 212, 123, 0.08);
 }
 
 .file-tree-node.selected {
-  background: rgba(124, 58, 237, 0.15);
+  background: rgba(0, 212, 123, 0.15);
 }
 
 /* ── Tab Styling ── */
@@ -270,7 +270,7 @@ html, body, #root {
 
 /* ── Gradient Text ── */
 .gradient-text {
-  background: linear-gradient(135deg, #7c3aed, #a78bfa, #c084fc);
+  background: linear-gradient(135deg, #00d47b, #34d399, #6ee7b7);
   background-size: 200% 200%;
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
@@ -280,7 +280,7 @@ html, body, #root {
 
 /* ── AI Avatar ── */
 .ai-avatar {
-  background: linear-gradient(135deg, #7c3aed, #3b82f6, #10b981);
+  background: linear-gradient(135deg, #00d47b, #10b981, #059669);
   background-size: 200% 200%;
   animation: gradientShift 3s ease infinite;
 }

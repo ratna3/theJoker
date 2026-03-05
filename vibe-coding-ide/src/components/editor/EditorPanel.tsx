@@ -24,7 +24,7 @@ export const EditorPanel: React.FC = () => {
             <div className="h-full flex flex-col items-center justify-center bg-app-bg gap-6 select-none">
                 <div className="flex flex-col items-center gap-3">
                     <div className="w-24 h-24 rounded-2xl flex items-center justify-center animate-pulse-glow">
-                        <img src="/theJoker.png" alt="The Joker" className="w-20 h-20 object-contain drop-shadow-lg" />
+                        <img src="./theJoker.png" alt="The Joker" className="w-20 h-20 object-contain drop-shadow-lg" />
                     </div>
                     <h1 className="text-3xl font-bold gradient-text">The Joker — Vibe Coding IDE</h1>
                     <p className="text-app-textMuted text-sm">AI-powered desktop IDE • Powered by LM Studio</p>

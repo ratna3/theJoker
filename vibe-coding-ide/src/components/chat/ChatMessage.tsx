@@ -107,7 +107,7 @@ export const ChatMessage: React.FC<Props> = ({ message }) => {
                     : 'ai-avatar text-white'
                 }
       `}>
-                {isUser ? <User size={14} /> : <img src="/theJoker.png" alt="The Joker" className="w-4 h-4 object-contain" />}
+                {isUser ? <User size={14} /> : <img src="./theJoker.png" alt="The Joker" className="w-4 h-4 object-contain" />}
             </div>
 
             {/* Message Content */}
