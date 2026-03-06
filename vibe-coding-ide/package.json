@@ -50,7 +50,7 @@
         "appId": "com.thejoker.vibecoding.ide",
         "productName": "The Joker - Vibe Coding IDE",
         "directories": {
-            "output": "release"
+            "output": "../electron/out"
         },
         "files": [
             "dist/**/*",

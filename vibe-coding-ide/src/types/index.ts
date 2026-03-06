@@ -259,8 +259,8 @@ declare global {
             ai: {
                 streamStart: (config: any) => Promise<void>;
                 streamStop: () => Promise<void>;
-                planProject: (prompt: string, template: string, baseUrl?: string) => Promise<any>;
-                generateFiles: (plan: any, baseUrl?: string) => Promise<any>;
+                planProject: (prompt: string, template: string, baseUrl?: string, model?: string) => Promise<any>;
+                generateFiles: (plan: any, baseUrl?: string, model?: string) => Promise<any>;
                 applyFile: (projectRoot: string, relativePath: string, content: string) => Promise<{ success: boolean; resolvedPath: string; error?: string }>;
                 runTerminal: (terminalId: string, command: string) => Promise<{ success: boolean; error?: string }>;
                 readTerminalOutput: (terminalId: string, maxLines?: number) => Promise<{ success: boolean; output: string; error?: string }>;

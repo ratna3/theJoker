@@ -76,11 +76,12 @@ export const useChatStore = create<ChatState>((set, get) => ({
     },
 
     setStreaming: (streaming, messageId) => {
+        const prevStreamId = get().currentStreamId;
         set({ isStreaming: streaming, currentStreamId: messageId || null });
-        if (!streaming && get().currentStreamId) {
+        if (!streaming && prevStreamId) {
             set((state) => ({
                 messages: state.messages.map((m) =>
-                    m.id === state.currentStreamId
+                    m.id === prevStreamId
                         ? { ...m, isStreaming: false }
                         : m
                 ),

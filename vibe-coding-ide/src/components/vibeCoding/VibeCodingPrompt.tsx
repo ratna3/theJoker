@@ -31,7 +31,7 @@ export const VibeCodingPrompt: React.FC = () => {
     const { isBuilding, steps, startBuild, updateStep, completeBuild, failBuild } = useBuildStore();
     const { openFolder } = useFileStore();
     const { createSession, setActiveSession } = useTerminalStore();
-    const { defaultProjectPath, lmStudioUrl } = useSettingsStore();
+    const { defaultProjectPath, lmStudioUrl, selectedModel } = useSettingsStore();
 
     // Init target dir
     React.useEffect(() => {
@@ -59,7 +59,7 @@ export const VibeCodingPrompt: React.FC = () => {
         try {
             // Step 1: Analyze
             updateStep('analyze', { status: 'running', detail: 'Analyzing your idea...' });
-            const planResult = await window.electronAPI?.ai?.planProject(prompt, selectedTemplate, lmStudioUrl);
+            const planResult = await window.electronAPI?.ai?.planProject(prompt, selectedTemplate, lmStudioUrl, selectedModel);
 
             if (!planResult?.success) {
                 failBuild('analyze', planResult?.error || 'Failed to analyze');
@@ -121,7 +121,7 @@ export const VibeCodingPrompt: React.FC = () => {
 
             // Step 3: Generate files
             updateStep('generate', { status: 'running', detail: 'Generating components...' });
-            const genResult = await window.electronAPI?.ai?.generateFiles(planResult.plan, lmStudioUrl);
+            const genResult = await window.electronAPI?.ai?.generateFiles(planResult.plan, lmStudioUrl, selectedModel);
             if (genResult?.success) {
                 const files = genResult.files;
                 updateStep('generate', { status: 'complete', detail: `${Object.keys(files).length} files` });

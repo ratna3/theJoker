@@ -295,22 +295,22 @@ function registerIpcHandlers(): void {
         aiAgent.abortStream();
     });
 
-    ipcMain.handle('ai-plan-project', async (_event, prompt: string, template: string) => {
+    ipcMain.handle('ai-plan-project', async (_event, prompt: string, template: string, baseUrl?: string, model?: string) => {
         try {
             const plan = await aiAgent.planProject(prompt, template, (step: any) => {
                 mainWindow?.webContents.send('build-step-update', step);
-            });
+            }, baseUrl, model);
             return { success: true, plan };
         } catch (err: any) {
             return { success: false, error: err.message };
         }
     });
 
-    ipcMain.handle('ai-generate-files', async (_event, plan: any) => {
+    ipcMain.handle('ai-generate-files', async (_event, plan: any, baseUrl?: string, model?: string) => {
         try {
             const files = await aiAgent.generateProjectFiles(plan, (progress: any) => {
                 mainWindow?.webContents.send('build-step-update', progress);
-            });
+            }, baseUrl, model);
             return { success: true, files: Object.fromEntries(files) };
         } catch (err: any) {
             return { success: false, error: err.message };
@@ -409,6 +409,36 @@ function registerIpcHandlers(): void {
             return { success: true, files };
         } catch (err: any) {
             return { success: false, files: [], error: err.message };
+        }
+    });
+
+    // ── Terminal Execute (blocking) ──
+    ipcMain.handle('terminal-execute', async (_event, options: { command: string; cwd: string; sessionId?: string; timeout?: number }) => {
+        try {
+            const sessionId = options.sessionId || '';
+            return await terminalManager.executeBlocking(
+                sessionId,
+                options.command,
+                options.cwd,
+                options.timeout || 60000,
+            );
+        } catch (err: any) {
+            return { success: false, output: '', exitCode: -1, error: err.message };
+        }
+    });
+
+    ipcMain.handle('terminal-launch-dev-server', async (_event, options: { command: string; cwd: string; sessionId?: string; port: number; timeout?: number }) => {
+        try {
+            const sessionId = options.sessionId || '';
+            return await terminalManager.startDevServer(
+                sessionId,
+                options.command,
+                options.cwd,
+                options.port,
+                options.timeout || 60000,
+            );
+        } catch (err: any) {
+            return { success: false, url: '', error: err.message };
         }
     });
 

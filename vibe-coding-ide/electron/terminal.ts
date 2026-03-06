@@ -4,6 +4,8 @@
  */
 
 import os from 'os';
+import fs from 'fs';
+import { exec } from 'child_process';
 
 // node-pty is a native module, imported dynamically
 let pty: any;
@@ -188,6 +190,136 @@ export class TerminalManager {
         // Send the command followed by a newline to execute it
         session.process.write(command + '\r');
         return true;
+    }
+
+    /**
+     * Execute a command and wait for completion (blocking).
+     * Uses child_process.exec for reliable exit code detection.
+     * Pipes output to PTY session for visual display.
+     */
+    async executeBlocking(
+        sessionId: string,
+        command: string,
+        cwd: string,
+        timeout = 60000
+    ): Promise<{ success: boolean; output: string; exitCode: number; error?: string }> {
+        // Ensure cwd exists
+        if (!fs.existsSync(cwd)) {
+            fs.mkdirSync(cwd, { recursive: true });
+        }
+
+        const session = this.sessions.get(sessionId);
+
+        return new Promise((resolve) => {
+            const proc = exec(command, {
+                cwd,
+                timeout,
+                shell: true,
+                env: { ...process.env },
+                maxBuffer: 10 * 1024 * 1024,
+            }, (error: any, stdout: string, stderr: string) => {
+                const exitCode = error ? (error.code || 1) : 0;
+                resolve({
+                    success: exitCode === 0,
+                    output: (stdout || '') + (stderr ? '\n' + stderr : ''),
+                    exitCode,
+                    error: error ? error.message : undefined,
+                });
+            });
+
+            // Pipe child_process output to the PTY data callback for display
+            if (session) {
+                proc.stdout?.on('data', (data: Buffer | string) => {
+                    const text = data.toString();
+                    session.dataCallback?.(text);
+                    session.outputBuffer += text;
+                    if (session.outputBuffer.length > MAX_OUTPUT_BUFFER_SIZE) {
+                        session.outputBuffer = session.outputBuffer.slice(-MAX_OUTPUT_BUFFER_SIZE);
+                    }
+                });
+                proc.stderr?.on('data', (data: Buffer | string) => {
+                    const text = data.toString();
+                    session.dataCallback?.(text);
+                    session.outputBuffer += text;
+                    if (session.outputBuffer.length > MAX_OUTPUT_BUFFER_SIZE) {
+                        session.outputBuffer = session.outputBuffer.slice(-MAX_OUTPUT_BUFFER_SIZE);
+                    }
+                });
+            }
+        });
+    }
+
+    /**
+     * Launch a dev server and detect when it's ready.
+     * Runs the command in the PTY session and polls for ready signal in output.
+     */
+    async startDevServer(
+        sessionId: string,
+        command: string,
+        cwd: string,
+        port: number,
+        timeout = 60000
+    ): Promise<{ success: boolean; url: string; error?: string }> {
+        const session = this.sessions.get(sessionId);
+        if (!session) {
+            return { success: false, url: '', error: 'Terminal session not found' };
+        }
+
+        if (!fs.existsSync(cwd)) {
+            fs.mkdirSync(cwd, { recursive: true });
+        }
+
+        // Mark buffer position before command
+        const bufferStart = session.outputBuffer.length;
+
+        // Write cd + command to PTY
+        session.process.write(`cd "${cwd}"\r`);
+        await new Promise(r => setTimeout(r, 500));
+        session.process.write(`${command}\r`);
+
+        const readyPatterns = [
+            /ready/i,
+            /listening on/i,
+            /started (?:server )?at/i,
+            /localhost:\d+/,
+            /http:\/\/\S+/,
+            /compiled successfully/i,
+            /running on port/i,
+            /Local:\s+http/i,
+        ];
+
+        return new Promise((resolve) => {
+            let resolved = false;
+
+            const pollInterval = setInterval(() => {
+                if (resolved) return;
+                const newOutput = session.outputBuffer.slice(bufferStart);
+                for (const pattern of readyPatterns) {
+                    if (pattern.test(newOutput)) {
+                        clearInterval(pollInterval);
+                        clearTimeout(timeoutTimer);
+                        resolved = true;
+                        const urlMatch = newOutput.match(/https?:\/\/localhost:\d+/);
+                        resolve({
+                            success: true,
+                            url: urlMatch ? urlMatch[0] : `http://localhost:${port}`,
+                        });
+                        return;
+                    }
+                }
+            }, 1000);
+
+            const timeoutTimer = setTimeout(() => {
+                if (resolved) return;
+                resolved = true;
+                clearInterval(pollInterval);
+                resolve({
+                    success: false,
+                    url: `http://localhost:${port}`,
+                    error: 'Dev server did not signal ready within timeout',
+                });
+            }, timeout);
+        });
     }
 
     /**

@@ -10,6 +10,7 @@ interface StreamConfig {
     model: string;
     temperature: number;
     maxTokens: number;
+    baseUrl?: string;
     systemPrompt?: string;
     currentFile?: { path: string; content: string };
     selectedCode?: string;
@@ -35,7 +36,7 @@ export class AIAgent {
         this.abortController = new AbortController();
 
         // Use baseUrl from config if provided (sent from renderer settings)
-        const apiUrl = (config as any).baseUrl || this.lmStudioUrl;
+        const apiUrl = config.baseUrl || this.lmStudioUrl;
 
         const systemPrompt = config.systemPrompt || this.buildSystemPrompt(config);
 
@@ -130,7 +131,9 @@ export class AIAgent {
     async planProject(
         userPrompt: string,
         template: string,
-        onStep: (step: any) => void
+        onStep: (step: any) => void,
+        baseUrl?: string,
+        model?: string
     ): Promise<ProjectPlan> {
         onStep({ step: 'analyze', status: 'running', detail: 'Analyzing your idea...' });
 
@@ -154,9 +157,10 @@ Respond with this exact JSON structure:
 
             this.streamMessage({
                 messages: [{ role: 'user', content: planPrompt }],
-                model: 'default',
+                model: model || 'default',
                 temperature: 0.3,
                 maxTokens: 2048,
+                baseUrl,
                 onToken: (token) => { fullResponse += token; },
                 onComplete: (response) => {
                     try {
@@ -186,7 +190,9 @@ Respond with this exact JSON structure:
      */
     async generateProjectFiles(
         plan: ProjectPlan,
-        onProgress?: (progress: any) => void
+        onProgress?: (progress: any) => void,
+        baseUrl?: string,
+        model?: string
     ): Promise<Map<string, string>> {
         const files = new Map<string, string>();
         const total = plan.components.length + plan.pages.length;
@@ -201,7 +207,7 @@ Respond with this exact JSON structure:
         // Generate components
         for (const component of plan.components) {
             try {
-                const content = await this.generateSingleFile(component, plan, 'component');
+                const content = await this.generateSingleFile(component, plan, 'component', baseUrl, model);
                 const filePath = `src/components/${component}.tsx`;
                 files.set(filePath, content);
                 completed++;
@@ -218,7 +224,7 @@ Respond with this exact JSON structure:
         // Generate pages
         for (const page of plan.pages) {
             try {
-                const content = await this.generateSingleFile(page, plan, 'page');
+                const content = await this.generateSingleFile(page, plan, 'page', baseUrl, model);
                 const filePath = `src/app/${page.toLowerCase()}/page.tsx`;
                 files.set(filePath, content);
                 completed++;
@@ -247,7 +253,9 @@ Respond with this exact JSON structure:
     private async generateSingleFile(
         name: string,
         plan: ProjectPlan,
-        type: 'component' | 'page'
+        type: 'component' | 'page',
+        baseUrl?: string,
+        model?: string
     ): Promise<string> {
         const prompt = `Write the complete ${name}.tsx file for a ${plan.description} app.
 This is a React/TypeScript ${type}. Make it fully functional with:
@@ -263,9 +271,10 @@ Return ONLY the file content, no explanations or code fences.`;
 
             this.streamMessage({
                 messages: [{ role: 'user', content: prompt }],
-                model: 'default',
+                model: model || 'default',
                 temperature: 0.5,
                 maxTokens: 4096,
+                baseUrl,
                 onToken: (token) => { response += token; },
                 onComplete: (fullResponse) => {
                     // Strip code fences if present

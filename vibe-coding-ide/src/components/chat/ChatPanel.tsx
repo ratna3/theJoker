@@ -212,11 +212,38 @@ export const ChatPanel: React.FC = () => {
      * Handle plan approval — triggers autonomous execution
      */
     const handleApprovePlan = useCallback(async () => {
+        const approvedMsgId = pendingPlanMessageId;
         setPendingPlan(null);
         setExecuting(true);
         clearExecutionResults();
 
-        // Add "Plan Approved" user message
+        // Check if the pending message already contains executable actions (direct code)
+        const pendingMessage = useChatStore.getState().messages.find(m => m.id === approvedMsgId);
+        const existingActions = pendingMessage ? parseAIResponse(pendingMessage.content) : [];
+        const hasPlanBlock = pendingMessage ? !!extractPlan(pendingMessage.content) : false;
+
+        if (existingActions.length > 0 && !hasPlanBlock) {
+            // Direct execution: apply code actions already present in the response
+            addMessage('user', '✅ Approved — Applying changes...');
+            const results = await executeActions(pendingMessage!.content);
+
+            const successCount = results.filter(r => r.success).length;
+            const failCount = results.filter(r => !r.success).length;
+
+            if (results.length > 0) {
+                const summaryLines = results.map(r => {
+                    const icon = r.success ? '✅' : '❌';
+                    const type = r.action === 'file-write' ? '📝' : '💻';
+                    return `${icon} ${type} ${r.detail}${r.error ? ` — ${r.error}` : ''}`;
+                });
+                addMessage('assistant', `**Execution Complete** — ${successCount} succeeded, ${failCount} failed\n${summaryLines.join('\n')}`);
+            }
+
+            setExecuting(false);
+            return;
+        }
+
+        // Plan-based execution: ask AI to implement the approved plan
         addMessage('user', '✅ Plan Approved — Execute now.');
 
         // Create assistant message placeholder for execution response
@@ -314,9 +341,10 @@ export const ChatPanel: React.FC = () => {
         try {
             const response = await sendToAI(content, { terminalErrors, projectFiles });
 
-            // Check if response contains a plan
+            // Check if response contains a plan or executable code actions
             const plan = extractPlan(response);
-            if (plan) {
+            const hasActions = parseAIResponse(response).length > 0;
+            if (plan || hasActions) {
                 setPendingPlan(assistantId);
             }
         } catch (err: any) {

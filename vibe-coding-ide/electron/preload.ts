@@ -13,6 +13,10 @@ const electronAPI = {
         write: (id: string, data: string) => ipcRenderer.invoke('terminal-write', id, data),
         resize: (id: string, cols: number, rows: number) => ipcRenderer.invoke('terminal-resize', id, cols, rows),
         destroy: (id: string) => ipcRenderer.invoke('terminal-destroy', id),
+        execute: (options: { command: string; cwd: string; sessionId?: string; timeout?: number }) =>
+            ipcRenderer.invoke('terminal-execute', options),
+        launchDevServer: (options: { command: string; cwd: string; sessionId?: string; port: number; timeout?: number }) =>
+            ipcRenderer.invoke('terminal-launch-dev-server', options),
         onData: (id: string, callback: (data: string) => void) => {
             const channel = `terminal-data-${id}`;
             const handler = (_event: Electron.IpcRendererEvent, data: string) => callback(data);
@@ -49,8 +53,10 @@ const electronAPI = {
     ai: {
         streamStart: (config: any) => ipcRenderer.invoke('ai-stream-start', config),
         streamStop: () => ipcRenderer.invoke('ai-stream-stop'),
-        planProject: (prompt: string, template: string) => ipcRenderer.invoke('ai-plan-project', prompt, template),
-        generateFiles: (plan: any) => ipcRenderer.invoke('ai-generate-files', plan),
+        planProject: (prompt: string, template: string, baseUrl?: string, model?: string) =>
+            ipcRenderer.invoke('ai-plan-project', prompt, template, baseUrl, model),
+        generateFiles: (plan: any, baseUrl?: string, model?: string) =>
+            ipcRenderer.invoke('ai-generate-files', plan, baseUrl, model),
         applyFile: (projectRoot: string, relativePath: string, content: string) =>
             ipcRenderer.invoke('ai-apply-file', projectRoot, relativePath, content),
         runTerminal: (terminalId: string, command: string) =>
