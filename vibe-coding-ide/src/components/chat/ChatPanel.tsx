@@ -537,9 +537,57 @@ export const ChatPanel: React.FC = () => {
 
             // Check if response contains a plan or executable code actions
             const plan = extractPlan(response);
-            const hasActions = parseAIResponse(response).length > 0;
-            if (plan || hasActions) {
+            const actions = parseAIResponse(response);
+
+            if (plan) {
+                // Has a [PLAN] block — show approve/deny buttons
                 setPendingPlan(assistantId);
+            } else if (actions.length > 0) {
+                // Direct code actions (no plan) — auto-execute immediately
+                setExecuting(true);
+                clearExecutionResults();
+                const results = await executeActions(response);
+
+                // Auto-install dependencies if files were written
+                const filesWritten = results.some(r => r.action === 'file-write' && r.success);
+                if (filesWritten) {
+                    const terminalId = await ensureTerminal();
+                    await autoInstallDependencies(terminalId);
+                }
+
+                // Summary
+                const successCount = results.filter(r => r.success).length;
+                const failCount = results.filter(r => !r.success).length;
+                if (results.length > 0) {
+                    const summaryLines = results.map(r => {
+                        const icon = r.success ? '✅' : '❌';
+                        const type = r.action === 'file-write' ? '📝' : '💻';
+                        return `${icon} ${type} ${r.detail}${r.error ? ` — ${r.error}` : ''}`;
+                    });
+                    addMessage('assistant', `**Auto-applied ${successCount} change(s)${failCount > 0 ? `, ${failCount} failed` : ''}**\n${summaryLines.join('\n')}`);
+                }
+
+                // Error auto-fix loop
+                if (failCount > 0) {
+                    const failedDetails = results.filter(r => !r.success).map(r => `- ${r.action}: ${r.detail} — ${r.error}`).join('\n');
+                    const fixId = addMessage('assistant', '');
+                    setStreaming(true, fixId);
+                    try {
+                        const fixResponse = await sendToAI(
+                            `These actions failed. Fix the errors and provide corrected code:\n\n${failedDetails}`,
+                            { terminalErrors: await getTerminalContext() || undefined, projectFiles },
+                        );
+                        const fixResults = await executeActions(fixResponse);
+                        const fixSuccess = fixResults.filter(r => r.success).length;
+                        if (fixSuccess > 0) {
+                            addMessage('assistant', `🔧 Auto-fix applied ${fixSuccess} correction(s)`);
+                        }
+                    } catch {
+                        // Auto-fix failed, user can see the errors
+                    }
+                }
+
+                setExecuting(false);
             }
         } catch (err: any) {
             useChatStore.getState().updateMessage(assistantId, {
@@ -548,7 +596,7 @@ export const ChatPanel: React.FC = () => {
             });
             setStreaming(false);
         }
-    }, [activeTab, rootPath, addMessage, setStreaming, setPendingPlan, sendToAI, getTerminalContext, getProjectFiles]);
+    }, [activeTab, rootPath, addMessage, setStreaming, setPendingPlan, setExecuting, clearExecutionResults, sendToAI, executeActions, ensureTerminal, autoInstallDependencies, getTerminalContext, getProjectFiles]);
 
     const handleStop = useCallback(() => {
         useChatStore.getState().cancelStream();
