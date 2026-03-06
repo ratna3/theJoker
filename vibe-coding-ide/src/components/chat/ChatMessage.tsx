@@ -1,14 +1,38 @@
 /**
- * ChatMessage — Individual message bubble with markdown support
+ * ChatMessage — Individual message bubble with markdown + plan block support
  */
 
 import React from 'react';
-import { User, ThumbsUp, ThumbsDown, Copy, RefreshCw } from 'lucide-react';
+import { User, ThumbsUp, ThumbsDown, Copy, ClipboardList } from 'lucide-react';
 import { CodeBlock } from './CodeBlock';
 import type { ChatMessage as ChatMessageType } from '../../types';
 
 interface Props {
     message: ChatMessageType;
+}
+
+/**
+ * Extract [PLAN]...[/PLAN] blocks and split text around them
+ */
+function splitPlanBlocks(text: string): Array<{ type: 'text' | 'plan'; content: string }> {
+    const parts: Array<{ type: 'text' | 'plan'; content: string }> = [];
+    const planRegex = /\[PLAN\]([\s\S]*?)\[\/PLAN\]/g;
+    let lastIndex = 0;
+    let match;
+
+    while ((match = planRegex.exec(text)) !== null) {
+        if (match.index > lastIndex) {
+            parts.push({ type: 'text', content: text.slice(lastIndex, match.index) });
+        }
+        parts.push({ type: 'plan', content: match[1].trim() });
+        lastIndex = match.index + match[0].length;
+    }
+
+    if (lastIndex < text.length) {
+        parts.push({ type: 'text', content: text.slice(lastIndex) });
+    }
+
+    return parts.length > 0 ? parts : [{ type: 'text', content: text }];
 }
 
 export const ChatMessage: React.FC<Props> = ({ message }) => {
@@ -18,64 +42,98 @@ export const ChatMessage: React.FC<Props> = ({ message }) => {
         navigator.clipboard.writeText(message.content);
     };
 
+    // Render a [PLAN] block with styled UI
+    const renderPlanBlock = (planText: string, key: string) => {
+        const lines = planText.split('\n').filter(l => l.trim());
+        return (
+            <div key={key} className="my-2 rounded-lg border border-app-accent/30 bg-app-accent/5 overflow-hidden">
+                <div className="flex items-center gap-2 px-3 py-1.5 bg-app-accent/10 border-b border-app-accent/20">
+                    <ClipboardList size={14} className="text-app-accent" />
+                    <span className="text-[12px] font-semibold text-app-accent">Execution Plan</span>
+                </div>
+                <div className="px-3 py-2 text-[12px] space-y-0.5">
+                    {lines.map((line, i) => {
+                        // Numbered steps
+                        if (/^\d+\./.test(line)) {
+                            return (
+                                <div key={i} className="flex items-start gap-2 py-0.5">
+                                    <span className="text-app-accent font-mono text-[11px] mt-0.5 flex-shrink-0">
+                                        {line.match(/^\d+/)?.[0]}.
+                                    </span>
+                                    <span className="text-app-text">{renderInlineFormatting(line.replace(/^\d+\.\s*/, ''))}</span>
+                                </div>
+                            );
+                        }
+                        // Summary line (non-numbered)
+                        return <p key={i} className="text-app-textMuted">{renderInlineFormatting(line)}</p>;
+                    })}
+                </div>
+            </div>
+        );
+    };
+
     // Simple markdown-to-JSX renderer
     const renderContent = (text: string) => {
-        const parts: React.ReactNode[] = [];
-        const codeBlockRegex = /```(\w*)\n([\s\S]*?)```/g;
-        let lastIndex = 0;
-        let match;
+        // First split on [PLAN] blocks
+        const segments = splitPlanBlocks(text);
+        const allParts: React.ReactNode[] = [];
 
-        while ((match = codeBlockRegex.exec(text)) !== null) {
-            // Text before code block
-            if (match.index > lastIndex) {
-                parts.push(
-                    <span key={`text-${lastIndex}`}>
-                        {renderInlineMarkdown(text.slice(lastIndex, match.index))}
+        segments.forEach((segment, segIdx) => {
+            if (segment.type === 'plan') {
+                allParts.push(renderPlanBlock(segment.content, `plan-${segIdx}`));
+                return;
+            }
+
+            // For text segments, parse code blocks
+            const textContent = segment.content;
+            const codeBlockRegex = /```(\w*)\n([\s\S]*?)```/g;
+            let lastIndex = 0;
+            let match;
+
+            while ((match = codeBlockRegex.exec(textContent)) !== null) {
+                if (match.index > lastIndex) {
+                    allParts.push(
+                        <span key={`text-${segIdx}-${lastIndex}`}>
+                            {renderInlineMarkdown(textContent.slice(lastIndex, match.index))}
+                        </span>
+                    );
+                }
+                allParts.push(
+                    <CodeBlock
+                        key={`code-${segIdx}-${match.index}`}
+                        language={match[1] || 'text'}
+                        code={match[2].trim()}
+                    />
+                );
+                lastIndex = match.index + match[0].length;
+            }
+
+            if (lastIndex < textContent.length) {
+                allParts.push(
+                    <span key={`text-${segIdx}-${lastIndex}`}>
+                        {renderInlineMarkdown(textContent.slice(lastIndex))}
                     </span>
                 );
             }
-            // Code block
-            parts.push(
-                <CodeBlock
-                    key={`code-${match.index}`}
-                    language={match[1] || 'text'}
-                    code={match[2].trim()}
-                />
-            );
-            lastIndex = match.index + match[0].length;
-        }
+        });
 
-        // Remaining text
-        if (lastIndex < text.length) {
-            parts.push(
-                <span key={`text-${lastIndex}`}>
-                    {renderInlineMarkdown(text.slice(lastIndex))}
-                </span>
-            );
-        }
-
-        return parts.length > 0 ? parts : renderInlineMarkdown(text);
+        return allParts.length > 0 ? allParts : renderInlineMarkdown(text);
     };
 
     const renderInlineMarkdown = (text: string) => {
-        // Split on inline code, bold, italic
         return text.split('\n').map((line, i) => {
-            // Headers
             if (line.startsWith('### ')) return <h3 key={i} className="text-[14px] font-semibold mt-2 mb-1">{line.slice(4)}</h3>;
             if (line.startsWith('## ')) return <h2 key={i} className="text-[15px] font-semibold mt-2 mb-1">{line.slice(3)}</h2>;
             if (line.startsWith('# ')) return <h1 key={i} className="text-[16px] font-bold mt-2 mb-1">{line.slice(2)}</h1>;
-            // List items
             if (line.startsWith('- ') || line.startsWith('* ')) return <li key={i} className="ml-4 list-disc">{renderInlineFormatting(line.slice(2))}</li>;
             if (/^\d+\.\s/.test(line)) return <li key={i} className="ml-4 list-decimal">{renderInlineFormatting(line.replace(/^\d+\.\s/, ''))}</li>;
-            // Empty lines
+            if (line.startsWith('---')) return <hr key={i} className="border-app-border/30 my-2" />;
             if (!line.trim()) return <br key={i} />;
-            // Normal text
             return <p key={i} className="my-0.5">{renderInlineFormatting(line)}</p>;
         });
     };
 
     const renderInlineFormatting = (text: string): React.ReactNode => {
-        // Handle inline code, bold, italic
         const parts: React.ReactNode[] = [];
         const regex = /(`[^`]+`|\*\*[^*]+\*\*|\*[^*]+\*)/g;
         let lastIdx = 0;
