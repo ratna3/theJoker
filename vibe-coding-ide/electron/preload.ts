@@ -94,6 +94,35 @@ const electronAPI = {
         },
     },
 
+    // ── Pentest (ENDj0K3R) ──
+    pentest: {
+        startSession: (config: { target: string; customInstruction?: string; model?: string; baseUrl?: string }) =>
+            ipcRenderer.invoke('pentest-start', config),
+        pauseSession: () => ipcRenderer.invoke('pentest-pause'),
+        resumeSession: (instruction?: string) => ipcRenderer.invoke('pentest-resume', instruction),
+        stopSession: () => ipcRenderer.invoke('pentest-stop'),
+        injectInstruction: (text: string) => ipcRenderer.invoke('pentest-inject', text),
+        getState: () => ipcRenderer.invoke('pentest-get-state'),
+        listSessions: () => ipcRenderer.invoke('pentest-list-sessions'),
+        loadSession: (id: string) => ipcRenderer.invoke('pentest-load-session', id),
+        deleteSession: (id: string) => ipcRenderer.invoke('pentest-delete-session', id),
+        onActivity: (callback: (item: any) => void) => {
+            const handler = (_event: Electron.IpcRendererEvent, item: any) => callback(item);
+            ipcRenderer.on('pentest-activity', handler);
+            return () => ipcRenderer.removeListener('pentest-activity', handler);
+        },
+        onStateChange: (callback: (state: string) => void) => {
+            const handler = (_event: Electron.IpcRendererEvent, state: string) => callback(state);
+            ipcRenderer.on('pentest-state-change', handler);
+            return () => ipcRenderer.removeListener('pentest-state-change', handler);
+        },
+        onFlagFound: (callback: (flag: any) => void) => {
+            const handler = (_event: Electron.IpcRendererEvent, flag: any) => callback(flag);
+            ipcRenderer.on('pentest-flag-found', handler);
+            return () => ipcRenderer.removeListener('pentest-flag-found', handler);
+        },
+    },
+
     // ── Dialog ──
     dialog: {
         openFolder: () => ipcRenderer.invoke('open-folder-dialog'),

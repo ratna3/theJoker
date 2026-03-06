@@ -15,6 +15,7 @@ import { AIAgent } from './aiAgent';
 import { ProjectManager } from './projectManager';
 import { DependencyInstaller } from './dependencyInstaller';
 import { sanitizeFilePath } from './responseParser';
+import { getPentestController } from './pentestAgent';
 
 let mainWindow: BrowserWindow | null = null;
 
@@ -440,6 +441,68 @@ function registerIpcHandlers(): void {
         } catch (err: any) {
             return { success: false, url: '', error: err.message };
         }
+    });
+
+    // ── Pentest (ENDj0K3R) IPC ──
+    ipcMain.handle('pentest-start', async (_event, config: any) => {
+        try {
+            const controller = getPentestController();
+            if (mainWindow) {
+                // Run in background — don't await (it runs the agent loop)
+                controller.start(config, mainWindow).catch((err: any) => {
+                    mainWindow?.webContents.send('pentest-activity', {
+                        id: 'err-' + Date.now(),
+                        type: 'message',
+                        content: `Agent error: ${err.message}`,
+                        messageType: 'error',
+                        timestamp: Date.now(),
+                    });
+                });
+            }
+            return { success: true };
+        } catch (err: any) {
+            return { success: false, error: err.message };
+        }
+    });
+
+    ipcMain.handle('pentest-pause', async () => {
+        const controller = getPentestController();
+        return controller.pause(mainWindow!);
+    });
+
+    ipcMain.handle('pentest-resume', async (_event, instruction?: string) => {
+        const controller = getPentestController();
+        return controller.resume(mainWindow!, instruction);
+    });
+
+    ipcMain.handle('pentest-stop', async () => {
+        const controller = getPentestController();
+        return controller.stop(mainWindow!);
+    });
+
+    ipcMain.handle('pentest-inject', async (_event, text: string) => {
+        const controller = getPentestController();
+        return controller.inject(text, mainWindow!);
+    });
+
+    ipcMain.handle('pentest-get-state', async () => {
+        const controller = getPentestController();
+        return controller.getState();
+    });
+
+    ipcMain.handle('pentest-list-sessions', async () => {
+        const controller = getPentestController();
+        return controller.listSessions();
+    });
+
+    ipcMain.handle('pentest-load-session', async (_event, id: string) => {
+        const controller = getPentestController();
+        return controller.loadSession(id);
+    });
+
+    ipcMain.handle('pentest-delete-session', async (_event, id: string) => {
+        const controller = getPentestController();
+        return controller.deleteSession(id);
     });
 
     // ── Dialog IPC ──

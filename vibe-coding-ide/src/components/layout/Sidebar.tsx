@@ -3,12 +3,13 @@
  */
 
 import React, { useState } from 'react';
-import { Files, MessageSquare, Palette, Settings, Rocket } from 'lucide-react';
+import { Files, MessageSquare, Palette, Settings, Rocket, Skull } from 'lucide-react';
 import { FileExplorer } from '../fileExplorer/FileExplorer';
 import { SettingsPanel } from '../settings/SettingsPanel';
 import { VibeCodingPrompt } from '../vibeCoding/VibeCodingPrompt';
+import { EndJokerPanel } from '../endjoker/EndJokerPanel';
 
-type SidebarView = 'files' | 'chat' | 'vibe' | 'settings';
+type SidebarView = 'files' | 'chat' | 'vibe' | 'endjoker' | 'settings';
 
 export const Sidebar: React.FC = () => {
     const [activeView, setActiveView] = useState<SidebarView>('files');
@@ -16,6 +17,7 @@ export const Sidebar: React.FC = () => {
     const navItems: { id: SidebarView; icon: React.ElementType; label: string }[] = [
         { id: 'files', icon: Files, label: 'Explorer' },
         { id: 'vibe', icon: Rocket, label: 'Vibe Coding' },
+        { id: 'endjoker', icon: Skull, label: 'ENDj0K3R' },
         { id: 'settings', icon: Settings, label: 'Settings' },
     ];
 
@@ -31,7 +33,9 @@ export const Sidebar: React.FC = () => {
                         className={`
               tooltip w-10 h-10 flex items-center justify-center rounded-lg transition-all duration-150
               ${activeView === id
-                                ? 'bg-app-accent/20 text-app-accent border-l-2 border-app-accent'
+                                ? id === 'endjoker'
+                                    ? 'bg-red-600/20 text-red-500 border-l-2 border-red-500'
+                                    : 'bg-app-accent/20 text-app-accent border-l-2 border-app-accent'
                                 : 'text-app-textMuted hover:text-app-text hover:bg-white/5'
                             }
             `}
@@ -45,8 +49,10 @@ export const Sidebar: React.FC = () => {
             <div className="flex-1 min-w-0 overflow-hidden">
                 {activeView === 'files' && <FileExplorer />}
                 {activeView === 'vibe' && <VibeCodingPrompt />}
+                {activeView === 'endjoker' && <EndJokerPanel />}
                 {activeView === 'settings' && <SettingsPanel />}
             </div>
         </div>
     );
 };
+
