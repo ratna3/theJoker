@@ -32,20 +32,9 @@ export function parseAIResponse(response: string): AIAction[] {
         const code = match[2].trim();
 
         // Check for terminal blocks
-        if (language === 'terminal' || language === 'bash' || language === 'sh' || language === 'shell' || language === 'cmd' || language === 'powershell') {
-            // Check if it looks like a command (not a code file)
-            const lines = code.split('\n').filter(l => l.trim());
-            const isCommand = lines.every(l =>
-                l.startsWith('$') || l.startsWith('>') || l.startsWith('#') ||
-                l.startsWith('npm ') || l.startsWith('npx ') || l.startsWith('yarn ') ||
-                l.startsWith('pnpm ') || l.startsWith('cd ') || l.startsWith('mkdir ') ||
-                l.startsWith('pip ') || l.startsWith('python ') || l.startsWith('node ') ||
-                l.startsWith('git ') || l.startsWith('echo ') ||
-                !code.includes('// filepath:')
-            );
-
-            // Only treat as terminal if there's no filepath AND the language hints at terminal
-            if ((language === 'terminal' || language === 'cmd' || language === 'powershell') && !code.includes('// filepath:')) {
+        if (['terminal', 'bash', 'sh', 'shell', 'cmd', 'powershell'].includes(language)) {
+            if (!code.includes('// filepath:') && !code.includes('# filepath:')) {
+                const lines = code.split('\n').filter(l => l.trim());
                 for (const line of lines) {
                     const cmd = line.replace(/^[$>]\s*/, '').trim();
                     if (cmd && !cmd.startsWith('#')) {

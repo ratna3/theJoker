@@ -154,7 +154,6 @@ export const ChatPanel: React.FC = () => {
         if (!terminalId && actions.some(a => a.type === 'terminal-command')) {
             const cwd = rootPath || await window.electronAPI?.system?.getHomeDir() || '';
             terminalId = useTerminalStore.getState().createSession(cwd);
-            // Wait for terminal to mount and initialize
             await new Promise(resolve => setTimeout(resolve, 1000));
             await window.electronAPI?.terminal?.create(terminalId, cwd);
         }
@@ -174,7 +173,6 @@ export const ChatPanel: React.FC = () => {
                     addExecutionResult(execResult);
                     if (result.success) {
                         filesChanged = true;
-                        // Open in editor
                         if (result.resolvedPath) {
                             await useEditorStore.getState().openFile(result.resolvedPath);
                         }
@@ -192,17 +190,22 @@ export const ChatPanel: React.FC = () => {
             } else if (action.type === 'terminal-command') {
                 try {
                     if (!terminalId) throw new Error('No active terminal');
-                    const result = await window.electronAPI.ai.runTerminal(terminalId, action.command);
+                    const cwd = rootPath || '';
+                    // Use blocking execution so commands run sequentially
+                    const result = await window.electronAPI.terminal.execute({
+                        command: action.command,
+                        cwd,
+                        sessionId: terminalId,
+                        timeout: 120000,
+                    });
                     const execResult: ExecutionResult = {
                         action: 'terminal-command',
                         detail: action.command,
                         success: result.success,
-                        error: result.error,
+                        error: result.error || (!result.success ? `Exit code: ${result.exitCode}` : undefined),
                     };
                     results.push(execResult);
                     addExecutionResult(execResult);
-                    // Wait for command to process
-                    await new Promise(resolve => setTimeout(resolve, 1000));
                 } catch (err: any) {
                     const execResult: ExecutionResult = {
                         action: 'terminal-command',
@@ -226,7 +229,156 @@ export const ChatPanel: React.FC = () => {
     }, [rootPath, addExecutionResult]);
 
     /**
-     * Handle plan approval — triggers autonomous execution
+     * Ensure a terminal session exists and return its ID
+     */
+    const ensureTerminal = useCallback(async (): Promise<string> => {
+        const { sessions, activeSessionId } = useTerminalStore.getState();
+        let terminalId = activeSessionId || sessions[0]?.id;
+        if (!terminalId) {
+            const cwd = rootPath || await window.electronAPI?.system?.getHomeDir() || '';
+            terminalId = useTerminalStore.getState().createSession(cwd);
+            await new Promise(resolve => setTimeout(resolve, 1000));
+            await window.electronAPI?.terminal?.create(terminalId, cwd);
+        }
+        return terminalId;
+    }, [rootPath]);
+
+    /**
+     * Auto-install dependencies if package.json exists in the project
+     */
+    const autoInstallDependencies = useCallback(async (terminalId: string): Promise<ExecutionResult | null> => {
+        if (!rootPath) return null;
+        try {
+            const pkgResult = await window.electronAPI.fs.readFile(rootPath.replace(/\\/g, '/') + '/package.json');
+            if (!pkgResult || !pkgResult.content) return null;
+        } catch {
+            return null; // No package.json, skip install
+        }
+
+        addMessage('assistant', '📦 Installing dependencies...');
+        const result = await window.electronAPI.terminal.execute({
+            command: 'npm install',
+            cwd: rootPath,
+            sessionId: terminalId,
+            timeout: 180000,
+        });
+
+        // If first attempt fails, try with --legacy-peer-deps
+        if (!result.success) {
+            addMessage('assistant', '⚠️ `npm install` failed, retrying with `--legacy-peer-deps`...');
+            const retryResult = await window.electronAPI.terminal.execute({
+                command: 'npm install --legacy-peer-deps',
+                cwd: rootPath,
+                sessionId: terminalId,
+                timeout: 180000,
+            });
+            const execResult: ExecutionResult = {
+                action: 'terminal-command',
+                detail: 'npm install --legacy-peer-deps',
+                success: retryResult.success,
+                error: retryResult.error,
+            };
+            addExecutionResult(execResult);
+            return execResult;
+        }
+
+        const execResult: ExecutionResult = {
+            action: 'terminal-command',
+            detail: 'npm install',
+            success: true,
+        };
+        addExecutionResult(execResult);
+        return execResult;
+    }, [rootPath, addMessage, addExecutionResult]);
+
+    /**
+     * Detect the dev server command from package.json scripts
+     */
+    const detectDevCommand = useCallback(async (): Promise<{ command: string; port: number } | null> => {
+        if (!rootPath) return null;
+        try {
+            const pkgResult = await window.electronAPI.fs.readFile(rootPath.replace(/\\/g, '/') + '/package.json');
+            if (!pkgResult?.content) return null;
+            const pkg = JSON.parse(pkgResult.content);
+            const scripts = pkg.scripts || {};
+
+            // Priority order: dev, start, serve
+            let command: string | null = null;
+            if (scripts.dev) command = 'npm run dev';
+            else if (scripts.start) command = 'npm start';
+            else if (scripts.serve) command = 'npm run serve';
+            if (!command) return null;
+
+            // Try to detect port from scripts
+            let port = 3000;
+            const scriptContent = scripts.dev || scripts.start || scripts.serve || '';
+            const portMatch = scriptContent.match(/--port\s+(\d+)/);
+            if (portMatch) port = parseInt(portMatch[1], 10);
+            // Common framework defaults
+            if (scripts.dev?.includes('vite') || pkg.devDependencies?.vite) port = 5173;
+            if (scripts.dev?.includes('next') || pkg.dependencies?.next) port = 3000;
+
+            return { command, port };
+        } catch {
+            return null;
+        }
+    }, [rootPath]);
+
+    /**
+     * Launch the dev server and return the URL
+     */
+    const launchDevServer = useCallback(async (terminalId: string): Promise<string | null> => {
+        const devInfo = await detectDevCommand();
+        if (!devInfo || !rootPath) return null;
+
+        addMessage('assistant', `🚀 Starting dev server: \`${devInfo.command}\`...`);
+        const result = await window.electronAPI.terminal.launchDevServer({
+            command: devInfo.command,
+            cwd: rootPath,
+            sessionId: terminalId,
+            port: devInfo.port,
+            timeout: 60000,
+        });
+
+        if (result.success && result.url) {
+            addMessage('assistant', `✅ **Dev server running!**\n🌐 Open in browser: **${result.url}**`);
+            return result.url;
+        } else {
+            addMessage('assistant', `⚠️ Dev server may still be starting. Check terminal for output.`);
+            return `http://localhost:${devInfo.port}`;
+        }
+    }, [rootPath, detectDevCommand, addMessage]);
+
+    /**
+     * Read terminal output and check for errors
+     */
+    const checkTerminalForErrors = useCallback(async (): Promise<string | null> => {
+        const output = await getTerminalContext();
+        if (!output) return null;
+
+        const errorPatterns = [
+            /error\s*:/i,
+            /ERR!/,
+            /ENOENT/,
+            /SyntaxError/,
+            /TypeError/,
+            /ReferenceError/,
+            /Cannot find module/i,
+            /Module not found/i,
+            /Failed to compile/i,
+            /Build failed/i,
+        ];
+
+        for (const pattern of errorPatterns) {
+            if (pattern.test(output)) {
+                return output;
+            }
+        }
+        return null;
+    }, [getTerminalContext]);
+
+    /**
+     * Handle plan approval — triggers autonomous execution with auto-install, dev server, and error handling
      */
     const handleApprovePlan = useCallback(async () => {
         const approvedMsgId = pendingPlanMessageId;
@@ -234,97 +386,122 @@ export const ChatPanel: React.FC = () => {
         setExecuting(true);
         clearExecutionResults();
 
-        // Check if the pending message already contains executable actions (direct code)
         const pendingMessage = useChatStore.getState().messages.find(m => m.id === approvedMsgId);
         const existingActions = pendingMessage ? parseAIResponse(pendingMessage.content) : [];
         const hasPlanBlock = pendingMessage ? !!extractPlan(pendingMessage.content) : false;
 
-        if (existingActions.length > 0 && !hasPlanBlock) {
-            // Direct execution: apply code actions already present in the response
-            addMessage('user', '✅ Approved — Applying changes...');
-            const results = await executeActions(pendingMessage!.content);
-
-            const successCount = results.filter(r => r.success).length;
-            const failCount = results.filter(r => !r.success).length;
-
-            if (results.length > 0) {
-                const summaryLines = results.map(r => {
-                    const icon = r.success ? '✅' : '❌';
-                    const type = r.action === 'file-write' ? '📝' : '💻';
-                    return `${icon} ${type} ${r.detail}${r.error ? ` — ${r.error}` : ''}`;
-                });
-                addMessage('assistant', `**Execution Complete** — ${successCount} succeeded, ${failCount} failed\n${summaryLines.join('\n')}`);
-            }
-
-            setExecuting(false);
-            return;
-        }
-
-        // Plan-based execution: ask AI to implement the approved plan
-        addMessage('user', '✅ Plan Approved — Execute now.');
-
-        // Create assistant message placeholder for execution response
-        const execAssistantId = addMessage('assistant', '');
-        setStreaming(true, execAssistantId);
+        const MAX_ERROR_RETRIES = 3;
 
         try {
-            // Gather context
-            const [terminalErrors, projectFiles] = await Promise.all([
-                getTerminalContext(),
-                getProjectFiles(),
-            ]);
+            let allResults: ExecutionResult[] = [];
 
-            // Send "__PLAN_APPROVED__" which triggers execution mode in system prompt
-            const response = await sendToAI('__PLAN_APPROVED__', { terminalErrors, projectFiles });
+            if (existingActions.length > 0 && !hasPlanBlock) {
+                // Direct execution: apply code actions already present in the response
+                addMessage('user', '✅ Approved — Applying changes...');
+                allResults = await executeActions(pendingMessage!.content);
+            } else {
+                // Plan-based execution: ask AI to implement the approved plan
+                addMessage('user', '✅ Plan Approved — Execute now.');
 
-            // Auto-execute all actions from the response
-            const results = await executeActions(response);
+                const execAssistantId = addMessage('assistant', '');
+                setStreaming(true, execAssistantId);
 
-            // Add execution summary message
-            const successCount = results.filter(r => r.success).length;
-            const failCount = results.filter(r => !r.success).length;
+                const [terminalErrors, projectFiles] = await Promise.all([
+                    getTerminalContext(),
+                    getProjectFiles(),
+                ]);
 
-            if (results.length > 0) {
-                const summaryLines = results.map(r => {
-                    const icon = r.success ? '✅' : '❌';
-                    const type = r.action === 'file-write' ? '📝' : '💻';
-                    return `${icon} ${type} ${r.detail}${r.error ? ` — ${r.error}` : ''}`;
-                });
+                const response = await sendToAI('__PLAN_APPROVED__', { terminalErrors, projectFiles });
+                allResults = await executeActions(response);
 
-                const summaryMsg = `\n\n---\n**Execution Complete** — ${successCount} succeeded, ${failCount} failed\n${summaryLines.join('\n')}`;
-                useChatStore.getState().updateMessage(execAssistantId, {
-                    content: useChatStore.getState().messages.find(m => m.id === execAssistantId)?.content + summaryMsg,
-                });
+                // Update the assistant message with summary
+                const successCount = allResults.filter(r => r.success).length;
+                const failCount = allResults.filter(r => !r.success).length;
+
+                if (allResults.length > 0) {
+                    const summaryLines = allResults.map(r => {
+                        const icon = r.success ? '✅' : '❌';
+                        const type = r.action === 'file-write' ? '📝' : '💻';
+                        return `${icon} ${type} ${r.detail}${r.error ? ` — ${r.error}` : ''}`;
+                    });
+                    const content = useChatStore.getState().messages.find(m => m.id === execAssistantId)?.content || '';
+                    useChatStore.getState().updateMessage(execAssistantId, {
+                        content: content + `\n\n---\n**Execution Complete** — ${successCount} succeeded, ${failCount} failed\n${summaryLines.join('\n')}`,
+                    });
+                }
             }
 
-            // If there were failures, send error details to AI for a fix
-            if (failCount > 0) {
-                const errorDetails = results
-                    .filter(r => !r.success)
-                    .map(r => `${r.action}: ${r.detail} — Error: ${r.error}`)
-                    .join('\n');
+            // ── Post-execution autonomous workflow ──
+            const terminalId = await ensureTerminal();
 
-                const retryAssistantId = addMessage('assistant', '');
-                setStreaming(true, retryAssistantId);
-
-                const retryResponse = await sendToAI(
-                    `Some actions failed. Please fix and retry:\n${errorDetails}`,
-                    { terminalErrors: await getTerminalContext(), projectFiles: await getProjectFiles() },
-                );
-
-                // Try executing the fixes
-                await executeActions(retryResponse);
+            // Auto-install dependencies
+            const installResult = await autoInstallDependencies(terminalId);
+            if (installResult) {
+                allResults.push(installResult);
             }
+
+            // Error detection and auto-fix loop
+            let retries = 0;
+            while (retries < MAX_ERROR_RETRIES) {
+                await new Promise(resolve => setTimeout(resolve, 2000));
+                const errorOutput = await checkTerminalForErrors();
+                const failedActions = allResults.filter(r => !r.success);
+
+                if (!errorOutput && failedActions.length === 0) break;
+
+                retries++;
+                const errorContext = [
+                    failedActions.length > 0
+                        ? `Failed actions:\n${failedActions.map(r => `- ${r.action}: ${r.detail} — ${r.error}`).join('\n')}`
+                        : '',
+                    errorOutput ? `Terminal errors:\n${errorOutput}` : '',
+                ].filter(Boolean).join('\n\n');
+
+                addMessage('assistant', `🔄 Detected errors (attempt ${retries}/${MAX_ERROR_RETRIES}). Auto-fixing...`);
+
+                const fixAssistantId = addMessage('assistant', '');
+                setStreaming(true, fixAssistantId);
+
+                try {
+                    const fixResponse = await sendToAI(
+                        `Errors occurred during execution. Fix these issues and provide corrected code:\n\n${errorContext}`,
+                        { terminalErrors: errorOutput || undefined, projectFiles: await getProjectFiles() },
+                    );
+                    const fixResults = await executeActions(fixResponse);
+                    allResults = fixResults;
+
+                    // Re-install if new files were written
+                    if (fixResults.some(r => r.action === 'file-write' && r.success)) {
+                        const reinstall = await autoInstallDependencies(terminalId);
+                        if (reinstall) allResults.push(reinstall);
+                    }
+                } catch (err: any) {
+                    useChatStore.getState().updateMessage(fixAssistantId, {
+                        content: `⚠️ Auto-fix attempt failed: ${err.message}`,
+                        isStreaming: false,
+                    });
+                    setStreaming(false);
+                    break;
+                }
+            }
+
+            // Launch dev server
+            await launchDevServer(terminalId);
+
+            // Final summary
+            const totalSuccess = allResults.filter(r => r.success).length;
+            const totalFail = allResults.filter(r => !r.success).length;
+            if (totalFail === 0 && totalSuccess > 0) {
+                addMessage('assistant', `🎉 **All changes applied successfully!** (${totalSuccess} actions completed)`);
+            }
+
         } catch (err: any) {
-            useChatStore.getState().updateMessage(execAssistantId, {
-                content: `⚠️ Execution failed: ${err.message}`,
-                isStreaming: false,
-            });
+            addMessage('assistant', `⚠️ Execution failed: ${err.message}`);
             setStreaming(false);
         }
 
         setExecuting(false);
-    }, [addMessage, setStreaming, setPendingPlan, setExecuting, clearExecutionResults, sendToAI, executeActions, getTerminalContext, getProjectFiles]);
+    }, [addMessage, setStreaming, setPendingPlan, setExecuting, clearExecutionResults, sendToAI, executeActions, getTerminalContext, getProjectFiles, ensureTerminal, autoInstallDependencies, launchDevServer, checkTerminalForErrors, pendingPlanMessageId, addExecutionResult]);
 
     /**
      * Handle plan denial

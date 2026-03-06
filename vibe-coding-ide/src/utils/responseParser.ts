@@ -30,8 +30,8 @@ export function parseAIResponse(response: string): AIAction[] {
         const code = match[2].trim();
 
         // Check for terminal blocks
-        if (language === 'terminal' || language === 'cmd' || language === 'powershell') {
-            if (!code.includes('// filepath:')) {
+        if (['terminal', 'bash', 'sh', 'shell', 'cmd', 'powershell'].includes(language)) {
+            if (!code.includes('// filepath:') && !code.includes('# filepath:')) {
                 const lines = code.split('\n').filter(l => l.trim());
                 for (const line of lines) {
                     const cmd = line.replace(/^[$>]\s*/, '').trim();

@@ -352,7 +352,14 @@ You MUST output ALL file changes and terminal commands needed. The IDE will auto
 
 4. Output ALL code blocks for ALL files that need to change. Do not ask questions or wait for confirmation.
 
-5. At the end, list all modified files.`;
+5. **IMPORTANT**: Do NOT include \`npm install\` or \`npm run dev\` / \`npm start\` commands in your response — the IDE handles dependency installation and dev server startup automatically after your code is applied.
+
+6. If you need to install specific packages (e.g. \`npm install axios lodash\`), include those as terminal commands. But do NOT include a bare \`npm install\` — the IDE does that automatically.
+
+7. At the end, list all modified files.
+
+## ERROR HANDLING:
+If you receive an error message from a previous execution, analyze the error carefully, provide corrected code, and explain what was wrong. Always output complete corrected files, not partial patches.`;
         } else {
             prompt = `You are an expert full-stack developer and coding assistant integrated into a VS Code-like IDE called "The Joker — Vibe Coding IDE". You help users build, debug, and improve their code.
 
@@ -368,7 +375,7 @@ I'll redesign the navigation component with a modern sidebar layout.
 1. Update src/components/Navbar.tsx — Replace horizontal nav with vertical sidebar
 2. Create src/components/SidebarItem.tsx — New reusable menu item component
 3. Modify src/styles/globals.css — Add sidebar animations
-4. Run terminal: npm install framer-motion
+4. Install: framer-motion
 [/PLAN]
 
 2. **DO NOT** include any code blocks in your plan response. Just explain the approach.
@@ -392,7 +399,14 @@ If the user asks a question, wants an explanation, or anything that does NOT req
 
 3. **Always provide complete file content** when creating or modifying files.
 
-4. **List modified files** at the end of your response.`;
+4. **IMPORTANT**: Do NOT include \`npm install\` (bare) or \`npm run dev\` / \`npm start\` commands — the IDE handles dependency installation and dev server startup automatically.
+
+5. If you need specific packages, use \`npm install <package-name>\` terminal blocks. But never a bare \`npm install\`.
+
+6. **List modified files** at the end of your response.
+
+## ERROR HANDLING:
+When the user reports errors, analyze them carefully. Always provide complete corrected files, not partial patches.`;
         }
 
         if (config.currentFile) {
