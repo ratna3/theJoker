@@ -147,7 +147,17 @@ export const ChatPanel: React.FC = () => {
         if (actions.length === 0) return results;
 
         const { sessions, activeSessionId } = useTerminalStore.getState();
-        const terminalId = activeSessionId || sessions[0]?.id;
+        let terminalId = activeSessionId || sessions[0]?.id;
+        let filesChanged = false;
+
+        // If no terminal session exists, create one
+        if (!terminalId && actions.some(a => a.type === 'terminal-command')) {
+            const cwd = rootPath || await window.electronAPI?.system?.getHomeDir() || '';
+            terminalId = useTerminalStore.getState().createSession(cwd);
+            // Wait for terminal to mount and initialize
+            await new Promise(resolve => setTimeout(resolve, 1000));
+            await window.electronAPI?.terminal?.create(terminalId, cwd);
+        }
 
         for (const action of actions) {
             if (action.type === 'file-write') {
@@ -162,11 +172,12 @@ export const ChatPanel: React.FC = () => {
                     };
                     results.push(execResult);
                     addExecutionResult(execResult);
-                    // Refresh file tree
-                    useFileStore.getState().refreshTree();
-                    // Open in editor if successful
-                    if (result.success && result.resolvedPath) {
-                        await useEditorStore.getState().openFile(result.resolvedPath);
+                    if (result.success) {
+                        filesChanged = true;
+                        // Open in editor
+                        if (result.resolvedPath) {
+                            await useEditorStore.getState().openFile(result.resolvedPath);
+                        }
                     }
                 } catch (err: any) {
                     const execResult: ExecutionResult = {
@@ -203,6 +214,12 @@ export const ChatPanel: React.FC = () => {
                     addExecutionResult(execResult);
                 }
             }
+        }
+
+        // Refresh file explorer once after all actions complete
+        if (filesChanged) {
+            await new Promise(resolve => setTimeout(resolve, 300));
+            await useFileStore.getState().refreshTree();
         }
 
         return results;

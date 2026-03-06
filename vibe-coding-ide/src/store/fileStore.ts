@@ -5,6 +5,8 @@
 import { create } from 'zustand';
 import type { FileNode, FileChangeEvent } from '../types';
 
+let fileChangeDebounceTimer: ReturnType<typeof setTimeout> | null = null;
+
 interface FileState {
     rootPath: string | null;
     rootTree: FileNode[];
@@ -76,9 +78,12 @@ export const useFileStore = create<FileState>((set, get) => ({
     setSearchQuery: (query) => set({ searchQuery: query }),
 
     handleFileChange: (_event) => {
-        // Debounced refresh
-        const { refreshTree } = get();
-        refreshTree();
+        // Debounced refresh — coalesce rapid file changes into a single tree read
+        if (fileChangeDebounceTimer) clearTimeout(fileChangeDebounceTimer);
+        fileChangeDebounceTimer = setTimeout(() => {
+            fileChangeDebounceTimer = null;
+            get().refreshTree();
+        }, 300);
     },
 
     updateChildren: (parentPath, children) => {

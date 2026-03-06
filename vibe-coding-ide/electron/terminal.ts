@@ -39,6 +39,17 @@ export class TerminalManager {
             this.destroy(id);
         }
 
+        // Ensure cwd exists before spawning the PTY process
+        let safeCwd = cwd;
+        if (!safeCwd || !fs.existsSync(safeCwd)) {
+            try {
+                fs.mkdirSync(safeCwd, { recursive: true });
+            } catch {
+                // Fall back to home directory if creation fails
+                safeCwd = os.homedir();
+            }
+        }
+
         const shell = this.getDefaultShell();
         const shellArgs = this.getShellArgs(shell);
 
@@ -46,7 +57,7 @@ export class TerminalManager {
             name: 'xterm-256color',
             cols: 120,
             rows: 30,
-            cwd,
+            cwd: safeCwd,
             env: {
                 ...process.env,
                 TERM: 'xterm-256color',

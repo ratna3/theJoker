@@ -23,7 +23,7 @@ interface StreamConfig {
 
 export class AIAgent {
     private abortController: AbortController | null = null;
-    private lmStudioUrl = 'http://localhost:1234';
+    private lmStudioUrl = '';
 
     setUrl(url: string): void {
         this.lmStudioUrl = url;
