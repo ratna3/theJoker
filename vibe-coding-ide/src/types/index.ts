@@ -192,6 +192,28 @@ export interface AppSettings {
     autoOpenBrowser: boolean;
 }
 
+// ── AI Action Types ──
+
+export interface FileAction {
+    type: 'file-write';
+    filePath: string;
+    content: string;
+    language: string;
+}
+
+export interface TerminalAction {
+    type: 'terminal-command';
+    command: string;
+}
+
+export type AIAction = FileAction | TerminalAction;
+
+export interface AIActionResult {
+    action: AIAction;
+    success: boolean;
+    error?: string;
+}
+
 // ── Toast / Notification Types ──
 
 export type ToastType = 'success' | 'error' | 'warning' | 'info';
@@ -239,6 +261,10 @@ declare global {
                 streamStop: () => Promise<void>;
                 planProject: (prompt: string, template: string, baseUrl?: string) => Promise<any>;
                 generateFiles: (plan: any, baseUrl?: string) => Promise<any>;
+                applyFile: (projectRoot: string, relativePath: string, content: string) => Promise<{ success: boolean; resolvedPath: string; error?: string }>;
+                runTerminal: (terminalId: string, command: string) => Promise<{ success: boolean; error?: string }>;
+                readTerminalOutput: (terminalId: string, maxLines?: number) => Promise<{ success: boolean; output: string; error?: string }>;
+                listProjectFiles: (projectRoot: string) => Promise<{ success: boolean; files: string[]; error?: string }>;
                 onToken: (callback: (token: string) => void) => () => void;
                 onComplete: (callback: (response: string) => void) => () => void;
                 onError: (callback: (error: string) => void) => () => void;

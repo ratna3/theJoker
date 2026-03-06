@@ -14,6 +14,7 @@ interface StreamConfig {
     currentFile?: { path: string; content: string };
     selectedCode?: string;
     terminalErrors?: string;
+    projectFiles?: string[];
     onToken: (token: string) => void;
     onComplete: (fullResponse: string) => void;
     onError: (error: string) => void;
@@ -33,6 +34,9 @@ export class AIAgent {
     async streamMessage(config: StreamConfig): Promise<void> {
         this.abortController = new AbortController();
 
+        // Use baseUrl from config if provided (sent from renderer settings)
+        const apiUrl = (config as any).baseUrl || this.lmStudioUrl;
+
         const systemPrompt = config.systemPrompt || this.buildSystemPrompt(config);
 
         const messages = [
@@ -41,7 +45,7 @@ export class AIAgent {
         ];
 
         try {
-            const response = await fetch(`${this.lmStudioUrl}/v1/chat/completions`, {
+            const response = await fetch(`${apiUrl}/v1/chat/completions`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
@@ -311,25 +315,45 @@ Return ONLY the file content, no explanations or code fences.`;
      * Build system prompt with context
      */
     private buildSystemPrompt(config: StreamConfig): string {
-        let prompt = `You are an expert full-stack developer and coding assistant integrated into a VS Code-like IDE called Vibe Coding IDE. You help users build, debug, and improve their code.
+        let prompt = `You are an expert full-stack developer and coding assistant integrated into a VS Code-like IDE called "The Joker — Vibe Coding IDE". You help users build, debug, and improve their code.
 
-When suggesting code changes, always specify the exact file path at the top of each code block as a comment: // filepath: src/components/Example.tsx
+## CRITICAL RULES FOR CODE OUTPUT:
 
-When you make changes, list the files modified at the end of your response.`;
+1. **File Edits**: When you write or modify code, you MUST include a filepath comment as the VERY FIRST LINE of each code block:
+   - For JS/TS/C/Java files: \`// filepath: src/components/Example.tsx\`
+   - For Python/Shell files: \`# filepath: src/main.py\`
+   - For HTML/XML files: \`<!-- filepath: index.html -->\`
+   The path must be relative to the project root.
+
+2. **Terminal Commands**: When you want to run a terminal command, use a code block with language \`terminal\`:
+   \`\`\`terminal
+   npm install axios
+   \`\`\`
+   Each line in a terminal block will be executed as a separate command.
+
+3. **Always provide complete file content** when creating or modifying files. Do not use partial snippets unless explaining code.
+
+4. **List modified files** at the end of your response when you make changes.
+
+5. When fixing bugs, explain the issue briefly before providing the fix.`;
 
         if (config.currentFile) {
             const content = config.currentFile.content.length > 3000
                 ? config.currentFile.content.substring(0, 3000) + '\n... (truncated)'
                 : config.currentFile.content;
-            prompt += `\n\nCurrent open file: ${config.currentFile.path}\nFile content:\n${content}`;
+            prompt += `\n\n## Current Open File\nPath: ${config.currentFile.path}\n\`\`\`\n${content}\n\`\`\``;
         }
 
         if (config.selectedCode) {
-            prompt += `\n\nSelected code:\n${config.selectedCode}`;
+            prompt += `\n\n## Selected Code\n\`\`\`\n${config.selectedCode}\n\`\`\``;
         }
 
         if (config.terminalErrors) {
-            prompt += `\n\nTerminal errors:\n${config.terminalErrors}`;
+            prompt += `\n\n## Recent Terminal Output/Errors\n\`\`\`\n${config.terminalErrors}\n\`\`\``;
+        }
+
+        if (config.projectFiles) {
+            prompt += `\n\n## Project Files\n${config.projectFiles.join('\n')}`;
         }
 
         return prompt;

@@ -13,10 +13,13 @@ try {
     console.warn('node-pty not available — terminal features will be disabled');
 }
 
+const MAX_OUTPUT_BUFFER_SIZE = 50000; // 50KB ring buffer per terminal
+
 interface PtySession {
     process: any;
     dataCallback?: (data: string) => void;
     exitCallback?: (exitCode: number) => void;
+    outputBuffer: string;
 }
 
 export class TerminalManager {
@@ -49,11 +52,16 @@ export class TerminalManager {
             },
         });
 
-        const session: PtySession = { process: ptyProcess };
+        const session: PtySession = { process: ptyProcess, outputBuffer: '' };
         this.sessions.set(id, session);
 
-        // Forward pty data
+        // Forward pty data and buffer output
         ptyProcess.onData((data: string) => {
+            // Append to output buffer (ring buffer behavior)
+            session.outputBuffer += data;
+            if (session.outputBuffer.length > MAX_OUTPUT_BUFFER_SIZE) {
+                session.outputBuffer = session.outputBuffer.slice(-MAX_OUTPUT_BUFFER_SIZE);
+            }
             session.dataCallback?.(data);
         });
 
@@ -148,6 +156,38 @@ export class TerminalManager {
             return [];
         }
         return ['--login'];
+    }
+
+    /**
+     * Get recent output from a terminal session
+     */
+    getRecentOutput(id: string, maxLines = 100): string {
+        const session = this.sessions.get(id);
+        if (!session) return '';
+
+        const lines = session.outputBuffer.split('\n');
+        return lines.slice(-maxLines).join('\n');
+    }
+
+    /**
+     * Clear the output buffer for a terminal session
+     */
+    clearOutputBuffer(id: string): void {
+        const session = this.sessions.get(id);
+        if (session) {
+            session.outputBuffer = '';
+        }
+    }
+
+    /**
+     * Write a command to a terminal and return (non-blocking)
+     */
+    executeCommand(id: string, command: string): boolean {
+        const session = this.sessions.get(id);
+        if (!session) return false;
+        // Send the command followed by a newline to execute it
+        session.process.write(command + '\r');
+        return true;
     }
 
     /**

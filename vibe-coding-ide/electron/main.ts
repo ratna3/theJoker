@@ -6,6 +6,7 @@
 import { app, BrowserWindow, ipcMain, dialog, Menu, shell } from 'electron';
 import path from 'path';
 import os from 'os';
+import fs from 'fs';
 
 // Managers will be imported from their respective modules
 import { TerminalManager } from './terminal';
@@ -13,6 +14,7 @@ import { FileSystemManager } from './fileSystem';
 import { AIAgent } from './aiAgent';
 import { ProjectManager } from './projectManager';
 import { DependencyInstaller } from './dependencyInstaller';
+import { sanitizeFilePath } from './responseParser';
 
 let mainWindow: BrowserWindow | null = null;
 
@@ -333,6 +335,80 @@ function registerIpcHandlers(): void {
             }, terminalManager);
         } catch (err: any) {
             return { success: false, error: err.message };
+        }
+    });
+
+    // ── AI File Apply IPC ──
+    ipcMain.handle('ai-apply-file', async (_event, projectRoot: string, relativePath: string, content: string) => {
+        try {
+            const resolvedPath = sanitizeFilePath(projectRoot, relativePath);
+            if (!resolvedPath) {
+                return { success: false, error: 'Invalid file path — cannot write outside project directory', resolvedPath: '' };
+            }
+
+            // Ensure directory exists
+            const dir = path.dirname(resolvedPath);
+            await fs.promises.mkdir(dir, { recursive: true });
+
+            // Write the file
+            await fs.promises.writeFile(resolvedPath, content, 'utf-8');
+
+            // Notify the file watcher
+            mainWindow?.webContents.send('fs-change', { type: 'change', path: resolvedPath });
+
+            return { success: true, resolvedPath };
+        } catch (err: any) {
+            return { success: false, error: err.message, resolvedPath: '' };
+        }
+    });
+
+    // ── AI Terminal IPC ──
+    ipcMain.handle('ai-run-terminal', async (_event, terminalId: string, command: string) => {
+        try {
+            const success = terminalManager.executeCommand(terminalId, command);
+            if (!success) {
+                return { success: false, error: 'Terminal session not found' };
+            }
+            return { success: true };
+        } catch (err: any) {
+            return { success: false, error: err.message };
+        }
+    });
+
+    ipcMain.handle('ai-read-terminal-output', async (_event, terminalId: string, maxLines?: number) => {
+        try {
+            const output = terminalManager.getRecentOutput(terminalId, maxLines || 100);
+            return { success: true, output };
+        } catch (err: any) {
+            return { success: false, output: '', error: err.message };
+        }
+    });
+
+    // ── AI List Project Files IPC ──
+    ipcMain.handle('ai-list-project-files', async (_event, projectRoot: string) => {
+        try {
+            const files: string[] = [];
+            const IGNORE = new Set(['node_modules', '.git', '.next', 'dist', 'build', '__pycache__', '.venv', 'coverage', '.cache']);
+
+            async function walk(dir: string, depth = 0): Promise<void> {
+                if (depth > 5) return; // Limit depth
+                const entries = await fs.promises.readdir(dir, { withFileTypes: true });
+                for (const entry of entries) {
+                    if (IGNORE.has(entry.name) || entry.name.startsWith('.')) continue;
+                    const fullPath = path.join(dir, entry.name);
+                    const relativePath = path.relative(projectRoot, fullPath).replace(/\\/g, '/');
+                    if (entry.isDirectory()) {
+                        await walk(fullPath, depth + 1);
+                    } else {
+                        files.push(relativePath);
+                    }
+                }
+            }
+
+            await walk(projectRoot);
+            return { success: true, files };
+        } catch (err: any) {
+            return { success: false, files: [], error: err.message };
         }
     });
 

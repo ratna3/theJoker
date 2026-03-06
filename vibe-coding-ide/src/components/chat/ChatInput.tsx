@@ -19,6 +19,9 @@ const SLASH_COMMANDS: SlashCommand[] = [
     { name: '/add-feature', description: 'Add a new feature', icon: '✨' },
     { name: '/add-tests', description: 'Generate unit tests', icon: '🧪' },
     { name: '/optimize', description: 'Optimize performance', icon: '⚡' },
+    { name: '/terminal', description: 'Run a terminal command', icon: '💻' },
+    { name: '/edit', description: 'Edit a specific file', icon: '📝' },
+    { name: '/create', description: 'Create a new file', icon: '📄' },
 ];
 
 export const ChatInput: React.FC<Props> = ({ onSend, onStop, isStreaming }) => {

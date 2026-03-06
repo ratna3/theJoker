@@ -7,12 +7,13 @@ import { Trash2 } from 'lucide-react';
 import { ChatMessage } from './ChatMessage';
 import { ChatInput } from './ChatInput';
 import { ThinkingIndicator } from './ThinkingIndicator';
-import { useChatStore, useEditorStore, useSettingsStore } from '../../store';
+import { useChatStore, useEditorStore, useSettingsStore, useFileStore, useTerminalStore } from '../../store';
 
 export const ChatPanel: React.FC = () => {
     const { messages, isStreaming, addMessage, appendToken, setStreaming, clearChat } = useChatStore();
     const { lmStudioUrl, selectedModel, temperature, maxTokens } = useSettingsStore();
     const activeTab = useEditorStore((s) => s.openTabs.find(t => t.id === s.activeTabId));
+    const rootPath = useFileStore((s) => s.rootPath);
     const messagesEndRef = useRef<HTMLDivElement>(null);
     const [userScrolledUp, setUserScrolledUp] = useState(false);
     const scrollContainerRef = useRef<HTMLDivElement>(null);
@@ -31,6 +32,41 @@ export const ChatPanel: React.FC = () => {
         setUserScrolledUp(!isNearBottom);
     }, []);
 
+    /**
+     * Gather terminal output for AI context
+     */
+    const getTerminalContext = useCallback(async (): Promise<string | undefined> => {
+        try {
+            const { sessions, activeSessionId } = useTerminalStore.getState();
+            const terminalId = activeSessionId || sessions[0]?.id;
+            if (!terminalId) return undefined;
+
+            const result = await window.electronAPI?.ai?.readTerminalOutput?.(terminalId, 50);
+            if (result?.success && result.output?.trim()) {
+                return result.output;
+            }
+        } catch {
+            // Terminal context is optional
+        }
+        return undefined;
+    }, []);
+
+    /**
+     * Gather project file list for AI context
+     */
+    const getProjectFiles = useCallback(async (): Promise<string[] | undefined> => {
+        if (!rootPath) return undefined;
+        try {
+            const result = await window.electronAPI?.ai?.listProjectFiles?.(rootPath);
+            if (result?.success && result.files?.length > 0) {
+                return result.files;
+            }
+        } catch {
+            // Project files context is optional
+        }
+        return undefined;
+    }, [rootPath]);
+
     const handleSend = useCallback(async (content: string, attachedContext?: { file?: boolean; selection?: string }) => {
         // Add user message
         addMessage('user', content, {
@@ -41,6 +77,12 @@ export const ChatPanel: React.FC = () => {
         // Create assistant message placeholder
         const assistantId = addMessage('assistant', '');
         setStreaming(true, assistantId);
+
+        // Gather context in parallel
+        const [terminalErrors, projectFiles] = await Promise.all([
+            getTerminalContext(),
+            getProjectFiles(),
+        ]);
 
         // Set up token listener
         const removeToken = window.electronAPI?.ai?.onToken?.((token) => {
@@ -71,7 +113,7 @@ export const ChatPanel: React.FC = () => {
             .map(m => ({ role: m.role, content: m.content }));
         apiMessages.push({ role: 'user', content });
 
-        // Start streaming
+        // Start streaming with full context
         await window.electronAPI?.ai?.streamStart({
             messages: apiMessages,
             model: selectedModel || 'default',
@@ -80,8 +122,10 @@ export const ChatPanel: React.FC = () => {
             baseUrl: lmStudioUrl,
             currentFile: activeTab ? { path: activeTab.filePath, content: activeTab.content } : undefined,
             selectedCode: attachedContext?.selection,
+            terminalErrors,
+            projectFiles,
         });
-    }, [messages, activeTab, addMessage, appendToken, setStreaming, selectedModel, temperature, maxTokens]);
+    }, [messages, activeTab, rootPath, addMessage, appendToken, setStreaming, selectedModel, temperature, maxTokens, getTerminalContext, getProjectFiles]);
 
     const handleStop = useCallback(() => {
         useChatStore.getState().cancelStream();
@@ -139,9 +183,10 @@ export const ChatPanel: React.FC = () => {
             </div>
 
             {/* Context Indicator */}
-            {activeTab && (
-                <div className="px-3 py-1 text-[11px] text-app-textMuted border-t border-app-border/50 flex-shrink-0">
-                    <span>Context: {activeTab.fileName}</span>
+            {(activeTab || rootPath) && (
+                <div className="px-3 py-1 text-[11px] text-app-textMuted border-t border-app-border/50 flex-shrink-0 flex items-center gap-2">
+                    {activeTab && <span>Context: {activeTab.fileName}</span>}
+                    {rootPath && <span className="text-app-accent/50">| Project loaded</span>}
                 </div>
             )}
 

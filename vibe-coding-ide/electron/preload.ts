@@ -51,6 +51,14 @@ const electronAPI = {
         streamStop: () => ipcRenderer.invoke('ai-stream-stop'),
         planProject: (prompt: string, template: string) => ipcRenderer.invoke('ai-plan-project', prompt, template),
         generateFiles: (plan: any) => ipcRenderer.invoke('ai-generate-files', plan),
+        applyFile: (projectRoot: string, relativePath: string, content: string) =>
+            ipcRenderer.invoke('ai-apply-file', projectRoot, relativePath, content),
+        runTerminal: (terminalId: string, command: string) =>
+            ipcRenderer.invoke('ai-run-terminal', terminalId, command),
+        readTerminalOutput: (terminalId: string, maxLines?: number) =>
+            ipcRenderer.invoke('ai-read-terminal-output', terminalId, maxLines),
+        listProjectFiles: (projectRoot: string) =>
+            ipcRenderer.invoke('ai-list-project-files', projectRoot),
         onToken: (callback: (token: string) => void) => {
             const handler = (_event: Electron.IpcRendererEvent, token: string) => callback(token);
             ipcRenderer.on('ai-token', handler);
