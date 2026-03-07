@@ -1,5 +1,5 @@
 /**
- * Vibe Coding IDE — Dependency Installer
+ * ENDj0K3R — Dependency Installer
  * Smart npm/yarn/pnpm fallback chain for installing dependencies
  */
 

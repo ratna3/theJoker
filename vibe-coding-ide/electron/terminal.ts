@@ -1,5 +1,5 @@
 /**
- * Vibe Coding IDE — Terminal Manager
+ * ENDj0K3R — Terminal Manager
  * Manages multiple pty processes using node-pty
  */
 

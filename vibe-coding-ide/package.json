@@ -1,7 +1,7 @@
 {
     "name": "thejoker-vibe-coding-ide",
     "version": "1.0.0",
-    "description": "The Joker — Vibe Coding IDE | Professional AI-powered desktop IDE built with Electron, React, and TypeScript",
+    "description": "The Joker — ENDj0K3R | Professional AI-powered desktop IDE built with Electron, React, and TypeScript",
     "main": "dist-electron/main.js",
     "author": "Ratna Kirti",
     "license": "MIT",
@@ -48,7 +48,7 @@
     },
     "build": {
         "appId": "com.thejoker.vibecoding.ide",
-        "productName": "The Joker - Vibe Coding IDE",
+        "productName": "The Joker - ENDj0K3R",
         "directories": {
             "output": "../electron/out"
         },
@@ -64,6 +64,7 @@
         "nsis": {
             "oneClick": false,
             "allowToChangeInstallationDirectory": true,
+            "license": "../electron/assets/LICENSE.rtf",
             "installerIcon": "build/theJoker.ico",
             "uninstallerIcon": "build/theJoker.ico",
             "installerHeaderIcon": "build/theJoker.ico"

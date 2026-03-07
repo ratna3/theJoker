@@ -1,4 +1,4 @@
-# Vibe Coding IDE
+# ENDj0K3R
 
 A professional, AI-powered desktop IDE built with **Electron**, **React**, **TypeScript**, and **Monaco Editor**. Powered by a local **LM Studio** AI backend.
 

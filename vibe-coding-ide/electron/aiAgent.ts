@@ -1,5 +1,5 @@
 /**
- * Vibe Coding IDE — AI Agent
+ * ENDj0K3R — AI Agent
  * LM Studio streaming API handler for chat and project generation
  */
 
@@ -329,7 +329,7 @@ Return ONLY the file content, no explanations or code fences.`;
         let prompt: string;
 
         if (isExecutionMode) {
-            prompt = `You are an expert full-stack developer integrated into "The Joker — Vibe Coding IDE". The user has APPROVED your plan. Now implement ALL the changes.
+            prompt = `You are an expert full-stack developer integrated into "The Joker — ENDj0K3R". The user has APPROVED your plan. Now implement ALL the changes.
 
 ## EXECUTION MODE — IMPLEMENT ALL CHANGES NOW
 
@@ -361,7 +361,7 @@ You MUST output ALL file changes and terminal commands needed. The IDE will auto
 ## ERROR HANDLING:
 If you receive an error message from a previous execution, analyze the error carefully, provide corrected code, and explain what was wrong. Always output complete corrected files, not partial patches.`;
         } else {
-            prompt = `You are an expert full-stack developer and coding assistant integrated into a VS Code-like IDE called "The Joker — Vibe Coding IDE". You help users build, debug, and improve their code.
+            prompt = `You are an expert full-stack developer and coding assistant integrated into a VS Code-like IDE called "The Joker — ENDj0K3R". You help users build, debug, and improve their code.
 
 ## HOW TO RESPOND
 

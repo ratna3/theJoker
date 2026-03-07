@@ -1,5 +1,5 @@
 /**
- * Vibe Coding IDE — Electron Main Process
+ * ENDj0K3R — Electron Main Process
  * Handles window creation, IPC registration, and app lifecycle
  */
 
@@ -58,7 +58,7 @@ function createWindow(): void {
         y: windowState.y,
         minWidth: 900,
         minHeight: 600,
-        title: 'The Joker — Vibe Coding IDE',
+        title: 'The Joker — ENDj0K3R',
         frame: true,
         backgroundColor: '#0a0e0c',
         icon: path.join(__dirname, '../public/theJoker.ico'),
@@ -188,8 +188,8 @@ function buildMenu(): void {
                     click: () => {
                         dialog.showMessageBox(mainWindow!, {
                             type: 'info',
-                            title: 'About The Joker — Vibe Coding IDE',
-                            message: 'The Joker — Vibe Coding IDE v1.0.0',
+                            title: 'About The Joker — ENDj0K3R',
+                            message: 'The Joker — ENDj0K3R v1.0.0',
                             detail: 'AI-powered desktop IDE built with Electron, React, and TypeScript.\nPowered by LM Studio.',
                         });
                     },

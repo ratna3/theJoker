@@ -1,5 +1,5 @@
 /**
- * Vibe Coding IDE — Electron Preload Script
+ * ENDj0K3R — Electron Preload Script
  * Exposes a safe API to the renderer via contextBridge
  */
 

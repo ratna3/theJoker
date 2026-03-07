@@ -1,5 +1,5 @@
 /**
- * Vibe Coding IDE — File System Manager
+ * ENDj0K3R — File System Manager
  * Handles file/directory operations and file watching with chokidar
  */
 

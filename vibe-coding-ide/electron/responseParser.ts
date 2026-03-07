@@ -1,5 +1,5 @@
 /**
- * Vibe Coding IDE — AI Response Parser
+ * ENDj0K3R — AI Response Parser
  * Extracts structured actions (file writes, terminal commands) from AI responses
  */
 

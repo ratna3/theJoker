@@ -1,5 +1,5 @@
 /**
- * Vibe Coding IDE — TypeScript Type Definitions
+ * ENDj0K3R — TypeScript Type Definitions
  * All shared interfaces and types used across the application
  */
 

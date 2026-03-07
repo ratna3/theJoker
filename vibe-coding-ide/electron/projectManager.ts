@@ -1,5 +1,5 @@
 /**
- * Vibe Coding IDE — Project Manager
+ * ENDj0K3R — Project Manager
  * Handles project creation, scaffolding, and file generation
  */
 
