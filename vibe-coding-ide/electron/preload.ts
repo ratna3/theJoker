@@ -1,6 +1,7 @@
 /**
- * ENDj0K3R — Electron Preload Script
+ * ENDj0K3R — Electron Preload Script v2.0
  * Exposes a safe API to the renderer via contextBridge
+ * Includes new pentest channels: approval, KB, streaming, report, resume, payload
  */
 
 import { contextBridge, ipcRenderer } from 'electron';
@@ -94,18 +95,42 @@ const electronAPI = {
         },
     },
 
-    // ── Pentest (ENDj0K3R) ──
+    // ── Pentest (ENDj0K3R) v2.0 ──
     pentest: {
-        startSession: (config: { target: string; customInstruction?: string; model?: string; baseUrl?: string }) =>
+        // Session lifecycle
+        startSession: (config: { target: string; customInstruction?: string; model?: string; baseUrl?: string; mode?: string }) =>
             ipcRenderer.invoke('pentest-start', config),
         pauseSession: () => ipcRenderer.invoke('pentest-pause'),
         resumeSession: (instruction?: string) => ipcRenderer.invoke('pentest-resume', instruction),
         stopSession: () => ipcRenderer.invoke('pentest-stop'),
         injectInstruction: (text: string) => ipcRenderer.invoke('pentest-inject', text),
         getState: () => ipcRenderer.invoke('pentest-get-state'),
+
+        // Session management
         listSessions: () => ipcRenderer.invoke('pentest-list-sessions'),
         loadSession: (id: string) => ipcRenderer.invoke('pentest-load-session', id),
         deleteSession: (id: string) => ipcRenderer.invoke('pentest-delete-session', id),
+        resumeSavedSession: (id: string) => ipcRenderer.invoke('pentest-resume-session', id),
+
+        // Execution mode
+        setMode: (mode: string) => ipcRenderer.invoke('pentest-set-mode', mode),
+        getMode: () => ipcRenderer.invoke('pentest-get-mode'),
+
+        // Human-in-the-loop
+        approveCommand: (editedCommand?: string) => ipcRenderer.invoke('pentest-approve-command', editedCommand),
+        rejectCommand: () => ipcRenderer.invoke('pentest-reject-command'),
+
+        // Knowledge base
+        getKB: () => ipcRenderer.invoke('pentest-get-kb'),
+
+        // Report
+        generateReport: () => ipcRenderer.invoke('pentest-generate-report'),
+
+        // Payload generator
+        generatePayload: (config: { type: string; language: string; lhost: string; lport: number; encoding?: string }) =>
+            ipcRenderer.invoke('pentest-generate-payload', config),
+
+        // Events
         onActivity: (callback: (item: any) => void) => {
             const handler = (_event: Electron.IpcRendererEvent, item: any) => callback(item);
             ipcRenderer.on('pentest-activity', handler);
@@ -120,6 +145,21 @@ const electronAPI = {
             const handler = (_event: Electron.IpcRendererEvent, flag: any) => callback(flag);
             ipcRenderer.on('pentest-flag-found', handler);
             return () => ipcRenderer.removeListener('pentest-flag-found', handler);
+        },
+        onStreamingToken: (callback: (data: { token: string; agentRole: string; fullContent: string }) => void) => {
+            const handler = (_event: Electron.IpcRendererEvent, data: any) => callback(data);
+            ipcRenderer.on('pentest-streaming-token', handler);
+            return () => ipcRenderer.removeListener('pentest-streaming-token', handler);
+        },
+        onCommandApproval: (callback: (approval: any) => void) => {
+            const handler = (_event: Electron.IpcRendererEvent, approval: any) => callback(approval);
+            ipcRenderer.on('pentest-command-approval', handler);
+            return () => ipcRenderer.removeListener('pentest-command-approval', handler);
+        },
+        onKBUpdate: (callback: (kb: any) => void) => {
+            const handler = (_event: Electron.IpcRendererEvent, kb: any) => callback(kb);
+            ipcRenderer.on('pentest-kb-update', handler);
+            return () => ipcRenderer.removeListener('pentest-kb-update', handler);
         },
     },
 

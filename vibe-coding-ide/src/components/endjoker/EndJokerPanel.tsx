@@ -1,73 +1,220 @@
 /**
- * ENDj0K3R — Main Pentest Panel
- * Target configuration, agent controls, activity feed, and session management
+ * ENDj0K3R — Main Control Panel v2.0
+ * Tab-based interface: Activity | Knowledge Base | Report | Payload Generator
+ * Execution mode toggle, streaming awareness, improved session management
  */
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { usePentestStore } from '../../store/pentestStore';
+import { usePentestStore, ExecutionMode } from '../../store/pentestStore';
 import { DisclaimerModal } from './DisclaimerModal';
-import { PentestActivityFeed } from './ActivityFeed';
+import { ActivityFeed } from './ActivityFeed';
 import { FlagDisplay } from './FlagDisplay';
 import { SessionManager } from './SessionManager';
+import { KnowledgeBaseView } from './KnowledgeBaseView';
+import { ReportView } from './ReportView';
+import { PayloadGenerator } from './PayloadGenerator';
 import {
-    Skull, Play, Pause, Square, Send, Target, Crosshair,
-    Zap, AlertTriangle
+    Play, Pause, Square, Send, Settings,
+    Brain, Globe, FileText, Zap,
+    Shield, ShieldCheck, ShieldAlert, History,
+    Crosshair, AlertTriangle, Flag
 } from 'lucide-react';
 
-const api = () => (window as any).electronAPI;
+// ── Execution Mode Selector ──
+const ModeSelector: React.FC = () => {
+    const mode = usePentestStore((s) => s.executionMode);
+    const setMode = usePentestStore((s) => s.setMode);
+    const agentState = usePentestStore((s) => s.agentState);
 
+    const modes: { value: ExecutionMode; label: string; icon: React.ReactNode; desc: string; color: string }[] = [
+        { value: 'auto', label: 'Auto', icon: <Zap size={12} />, desc: 'Full auto, no approval', color: '#22c55e' },
+        { value: 'approval', label: 'Approval', icon: <Shield size={12} />, desc: 'Approve commands', color: '#f59e0b' },
+        { value: 'manual', label: 'Manual', icon: <ShieldCheck size={12} />, desc: 'Guide each step', color: '#6366f1' },
+    ];
+
+    return (
+        <div style={{ display: 'flex', gap: '3px', padding: '2px', borderRadius: '6px', backgroundColor: 'rgba(0,0,0,0.3)' }}>
+            {modes.map((m) => (
+                <button
+                    key={m.value}
+                    onClick={() => setMode(m.value)}
+                    disabled={agentState === 'running'}
+                    title={m.desc}
+                    style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '3px',
+                        padding: '4px 8px',
+                        borderRadius: '4px',
+                        border: 'none',
+                        backgroundColor: mode === m.value ? `${m.color}15` : 'transparent',
+                        color: mode === m.value ? m.color : '#525252',
+                        fontSize: '10px',
+                        fontWeight: mode === m.value ? 600 : 400,
+                        cursor: agentState === 'running' ? 'not-allowed' : 'pointer',
+                        transition: 'all 0.2s',
+                    }}
+                >
+                    {m.icon} {m.label}
+                </button>
+            ))}
+        </div>
+    );
+};
+
+// ── Tab Bar ──
+const TabBar: React.FC = () => {
+    const activeTab = usePentestStore((s) => s.activeTab);
+    const setActiveTab = usePentestStore((s) => s.setActiveTab);
+    const kb = usePentestStore((s) => s.knowledgeBase);
+    const reportContent = usePentestStore((s) => s.reportContent);
+
+    const tabs: { value: typeof activeTab; label: string; icon: React.ReactNode; badge?: number }[] = [
+        { value: 'activity', label: 'Activity', icon: <Brain size={13} /> },
+        {
+            value: 'kb', label: 'KB', icon: <Globe size={13} />,
+            badge: kb ? kb.hosts.length + kb.credentials.length : 0,
+        },
+        {
+            value: 'report', label: 'Report', icon: <FileText size={13} />,
+            badge: reportContent ? 1 : 0,
+        },
+        { value: 'payload', label: 'Payload', icon: <Zap size={13} /> },
+    ];
+
+    return (
+        <div style={{
+            display: 'flex',
+            borderBottom: '1px solid rgba(255,255,255,0.06)',
+            backgroundColor: 'rgba(0,0,0,0.15)',
+        }}>
+            {tabs.map((tab) => (
+                <button
+                    key={tab.value}
+                    onClick={() => setActiveTab(tab.value)}
+                    style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '4px',
+                        padding: '8px 14px',
+                        border: 'none',
+                        borderBottom: `2px solid ${activeTab === tab.value ? '#6366f1' : 'transparent'}`,
+                        backgroundColor: 'transparent',
+                        color: activeTab === tab.value ? '#e5e5e5' : '#525252',
+                        fontSize: '12px',
+                        fontWeight: activeTab === tab.value ? 600 : 400,
+                        cursor: 'pointer',
+                        transition: 'all 0.2s',
+                        position: 'relative',
+                    }}
+                >
+                    {tab.icon}
+                    {tab.label}
+                    {tab.badge && tab.badge > 0 && (
+                        <span style={{
+                            fontSize: '9px',
+                            padding: '1px 4px',
+                            borderRadius: '8px',
+                            backgroundColor: 'rgba(99, 102, 241, 0.2)',
+                            color: '#818cf8',
+                            fontWeight: 700,
+                        }}>
+                            {tab.badge}
+                        </span>
+                    )}
+                </button>
+            ))}
+        </div>
+    );
+};
+
+// ── Main Panel ──
 export const EndJokerPanel: React.FC = () => {
     const {
-        agentState, disclaimerAccepted, acceptDisclaimer,
-        target, setTarget, customInstruction, setCustomInstruction,
-        addActivity, addFlag, setAgentState, startPentest,
-        pausePentest, resumePentest, stopPentest, injectInstruction,
+        agentState, disclaimerAccepted, target, customInstruction,
+        flagsFound, activities, activeTab,
+        setTarget, setCustomInstruction,
+        startPentest, pausePentest, resumePentest, stopPentest,
+        injectInstruction, loadSessions,
+        addActivity, addFlag, setAgentState,
+        setPendingApproval, setKnowledgeBase, setStreamingText,
+        clearStreaming,
     } = usePentestStore();
 
+    const [instruction, setInstruction] = useState('');
+    const [showSessions, setShowSessions] = useState(false);
+    const [showConfig, setShowConfig] = useState(false);
     const [model, setModel] = useState('');
-    const [models, setModels] = useState<string[]>([]);
-    const [injectionText, setInjectionText] = useState('');
-    const [showDisclaimer, setShowDisclaimer] = useState(!disclaimerAccepted);
+    const [baseUrl, setBaseUrl] = useState('http://localhost:1234');
+    const [connected, setConnected] = useState<boolean | null>(null);
+    const inputRef = useRef<HTMLInputElement>(null);
+    const executionMode = usePentestStore((s) => s.executionMode);
 
-    // Load models on mount
+    // Test LM Studio connection
+    const checkConnection = useCallback(async () => {
+        try {
+            const api = (window as any).electronAPI;
+            const result = await api.system.testLMConnection(baseUrl);
+            setConnected(result?.connected || false);
+            if (result?.models?.length > 0 && !model) {
+                setModel(result.models[0]);
+            }
+        } catch {
+            setConnected(false);
+        }
+    }, [baseUrl, model]);
+
     useEffect(() => {
-        api().system.getLMStudioModels('http://localhost:1234')
-            .then((m: string[]) => setModels(m || []))
-            .catch(() => { });
+        checkConnection();
     }, []);
 
-    // Subscribe to IPC events
+    // Register IPC event listeners
     useEffect(() => {
-        const cleanupActivity = api().pentest.onActivity((item: any) => {
+        const api = (window as any).electronAPI;
+        if (!api?.pentest) return;
+
+        const cleanups: (() => void)[] = [];
+
+        cleanups.push(api.pentest.onActivity((item: any) => {
             addActivity(item);
-        });
-        const cleanupState = api().pentest.onStateChange((state: string) => {
+        }));
+
+        cleanups.push(api.pentest.onStateChange((state: string) => {
             setAgentState(state as any);
-        });
-        const cleanupFlag = api().pentest.onFlagFound((flag: any) => {
+        }));
+
+        cleanups.push(api.pentest.onFlagFound((flag: any) => {
             addFlag(flag);
-        });
+        }));
+
+        cleanups.push(api.pentest.onStreamingToken((data: { token: string; agentRole: string; fullContent: string }) => {
+            setStreamingText(data.fullContent, data.agentRole);
+        }));
+
+        cleanups.push(api.pentest.onCommandApproval((approval: any) => {
+            setPendingApproval(approval);
+        }));
+
+        cleanups.push(api.pentest.onKBUpdate((kb: any) => {
+            setKnowledgeBase(kb);
+        }));
 
         return () => {
-            cleanupActivity();
-            cleanupState();
-            cleanupFlag();
+            cleanups.forEach(fn => fn());
         };
     }, []);
 
-    // Show disclaimer if not accepted
-    if (showDisclaimer || !disclaimerAccepted) {
-        return (
-            <DisclaimerModal
-                onAccept={() => {
-                    acceptDisclaimer();
-                    setShowDisclaimer(false);
-                }}
-                onExit={() => {
-                    setShowDisclaimer(true);
-                }}
-            />
-        );
+    // When agent state changes from streaming to activity, clear streaming
+    useEffect(() => {
+        if (agentState === 'idle' || agentState === 'completed' || agentState === 'error') {
+            clearStreaming();
+        }
+    }, [agentState]);
+
+    const acceptDisclaimer = usePentestStore((s) => s.acceptDisclaimer);
+
+    if (!disclaimerAccepted) {
+        return <DisclaimerModal onAccept={acceptDisclaimer} onExit={() => {}} />;
     }
 
     const handleStart = () => {
@@ -76,343 +223,357 @@ export const EndJokerPanel: React.FC = () => {
             target: target.trim(),
             customInstruction: customInstruction.trim() || undefined,
             model: model || undefined,
-            baseUrl: 'http://localhost:1234',
+            baseUrl,
+            mode: executionMode,
         });
     };
 
     const handleInject = () => {
-        if (!injectionText.trim()) return;
-        injectInstruction(injectionText.trim());
-        setInjectionText('');
+        if (!instruction.trim()) return;
+        injectInstruction(instruction.trim());
+        setInstruction('');
     };
 
-    const isRunning = agentState === 'running';
-    const isPaused = agentState === 'paused';
-    const isActive = isRunning || isPaused;
+    const isRunning = agentState === 'running' || agentState === 'paused' || agentState === 'awaiting_approval';
+
+    // State indicator
+    const stateConfig: Record<string, { color: string; label: string; pulse: boolean }> = {
+        idle: { color: '#525252', label: 'Idle', pulse: false },
+        running: { color: '#22c55e', label: 'Running', pulse: true },
+        paused: { color: '#f59e0b', label: 'Paused', pulse: false },
+        completed: { color: '#6366f1', label: 'Completed', pulse: false },
+        error: { color: '#ef4444', label: 'Error', pulse: false },
+        awaiting_approval: { color: '#f59e0b', label: 'Awaiting Approval', pulse: true },
+    };
+    const stCfg = stateConfig[agentState] || stateConfig.idle;
 
     return (
         <div style={{
-            height: '100%',
             display: 'flex',
             flexDirection: 'column',
+            height: '100%',
             backgroundColor: '#0a0e0c',
-            overflow: 'hidden',
+            color: '#e5e5e5',
         }}>
             {/* Header */}
             <div style={{
-                padding: '12px 14px',
-                borderBottom: '1px solid rgba(220, 38, 38, 0.2)',
-                background: 'linear-gradient(135deg, rgba(220, 38, 38, 0.08), rgba(99, 102, 241, 0.05))',
+                padding: '10px 12px',
+                borderBottom: '1px solid rgba(255,255,255,0.06)',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
             }}>
                 <div style={{
                     display: 'flex',
                     alignItems: 'center',
-                    gap: '8px',
+                    gap: '6px',
+                    flex: 1,
                 }}>
-                    <Skull size={20} color="#ef4444" />
-                    <span style={{
-                        fontSize: '15px',
-                        fontWeight: 700,
-                        color: '#ef4444',
-                        letterSpacing: '1.5px',
-                        fontFamily: 'monospace',
-                    }}>
+                    <Crosshair size={16} color="#ef4444" />
+                    <span style={{ fontSize: '14px', fontWeight: 700, letterSpacing: '1px', color: '#ef4444' }}>
                         ENDj0K3R
                     </span>
-                    <span style={{
-                        fontSize: '10px',
-                        color: '#6b7280',
-                        marginLeft: 'auto',
-                        textTransform: 'uppercase',
-                    }}>
-                        {agentState}
-                    </span>
+                    <span style={{ fontSize: '10px', color: '#525252', fontFamily: 'monospace' }}>v2.0</span>
+
+                    {/* State indicator */}
                     <div style={{
-                        width: '8px',
-                        height: '8px',
-                        borderRadius: '50%',
-                        backgroundColor: isRunning ? '#22c55e' :
-                            isPaused ? '#f59e0b' :
-                                agentState === 'completed' ? '#6366f1' :
-                                    agentState === 'error' ? '#ef4444' : '#525252',
-                        boxShadow: isRunning ? '0 0 8px rgba(34, 197, 94, 0.5)' : 'none',
-                        animation: isRunning ? 'pulse 2s ease-in-out infinite' : 'none',
-                    }} />
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '4px',
+                        marginLeft: '8px',
+                        padding: '2px 8px',
+                        borderRadius: '10px',
+                        backgroundColor: `${stCfg.color}10`,
+                        border: `1px solid ${stCfg.color}30`,
+                    }}>
+                        <div style={{
+                            width: '6px',
+                            height: '6px',
+                            borderRadius: '50%',
+                            backgroundColor: stCfg.color,
+                            animation: stCfg.pulse ? 'state-pulse 1.5s infinite' : 'none',
+                        }} />
+                        <span style={{ color: stCfg.color, fontSize: '10px', fontWeight: 600 }}>{stCfg.label}</span>
+                    </div>
                 </div>
+
+                {/* Toolbar buttons */}
+                <button
+                    onClick={() => setShowSessions(!showSessions)}
+                    title="Session History"
+                    style={{
+                        padding: '4px 8px',
+                        borderRadius: '4px',
+                        border: '1px solid rgba(255,255,255,0.08)',
+                        backgroundColor: showSessions ? 'rgba(99, 102, 241, 0.1)' : 'transparent',
+                        color: showSessions ? '#6366f1' : '#525252',
+                        fontSize: '11px',
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '4px',
+                    }}
+                >
+                    <History size={12} /> Sessions
+                </button>
+                <button
+                    onClick={() => setShowConfig(!showConfig)}
+                    title="Configuration"
+                    style={{
+                        padding: '4px',
+                        borderRadius: '4px',
+                        border: '1px solid rgba(255,255,255,0.08)',
+                        backgroundColor: showConfig ? 'rgba(99, 102, 241, 0.1)' : 'transparent',
+                        color: showConfig ? '#6366f1' : '#525252',
+                        cursor: 'pointer',
+                    }}
+                >
+                    <Settings size={14} />
+                </button>
             </div>
 
-            {/* Target Config (only when idle) */}
-            {!isActive && agentState !== 'completed' && (
-                <div style={{ padding: '12px', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
-                    <div style={{ marginBottom: '10px' }}>
-                        <label style={{
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: '6px',
-                            fontSize: '11px',
-                            color: '#a3a3a3',
-                            marginBottom: '4px',
-                            fontWeight: 500,
+            {/* Config panel (collapsible) */}
+            {showConfig && (
+                <div style={{
+                    padding: '8px 12px',
+                    borderBottom: '1px solid rgba(255,255,255,0.06)',
+                    backgroundColor: 'rgba(0,0,0,0.2)',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '6px',
+                }}>
+                    <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
+                        <input
+                            type="text"
+                            value={baseUrl}
+                            onChange={(e) => setBaseUrl(e.target.value)}
+                            placeholder="LM Studio URL"
+                            style={{
+                                flex: 1,
+                                padding: '6px 8px',
+                                borderRadius: '4px',
+                                border: '1px solid rgba(255,255,255,0.1)',
+                                backgroundColor: 'rgba(0,0,0,0.3)',
+                                color: '#e5e5e5',
+                                fontSize: '11px',
+                                outline: 'none',
+                                fontFamily: 'monospace',
+                            }}
+                        />
+                        <button onClick={checkConnection} style={{
+                            padding: '6px 10px',
+                            borderRadius: '4px',
+                            border: 'none',
+                            backgroundColor: connected ? 'rgba(34, 197, 94, 0.15)' : 'rgba(239, 68, 68, 0.15)',
+                            color: connected ? '#22c55e' : '#ef4444',
+                            fontSize: '10px',
+                            cursor: 'pointer',
                         }}>
-                            <Target size={12} /> Target
-                        </label>
+                            {connected === null ? 'Test' : connected ? '✓ Connected' : '✕ Failed'}
+                        </button>
+                    </div>
+                    <input
+                        type="text"
+                        value={model}
+                        onChange={(e) => setModel(e.target.value)}
+                        placeholder="Model name (leave empty for auto-detect)"
+                        style={{
+                            padding: '6px 8px',
+                            borderRadius: '4px',
+                            border: '1px solid rgba(255,255,255,0.1)',
+                            backgroundColor: 'rgba(0,0,0,0.3)',
+                            color: '#e5e5e5',
+                            fontSize: '11px',
+                            outline: 'none',
+                            fontFamily: 'monospace',
+                        }}
+                    />
+                    <ModeSelector />
+                </div>
+            )}
+
+            {/* Session History (collapsible) */}
+            {showSessions && (
+                <div style={{
+                    maxHeight: '200px',
+                    overflowY: 'auto',
+                    borderBottom: '1px solid rgba(255,255,255,0.06)',
+                }}>
+                    <SessionManager />
+                </div>
+            )}
+
+            {/* Target input & start controls */}
+            {!isRunning && (
+                <div style={{
+                    padding: '10px 12px',
+                    borderBottom: '1px solid rgba(255,255,255,0.06)',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '6px',
+                }}>
+                    <div style={{ display: 'flex', gap: '6px' }}>
                         <input
                             type="text"
                             value={target}
                             onChange={(e) => setTarget(e.target.value)}
-                            placeholder="IP, URL, or domain..."
+                            placeholder="Target IP / URL (e.g. 10.10.11.100 or http://target.ctf)"
+                            onKeyDown={(e) => e.key === 'Enter' && handleStart()}
                             style={{
-                                width: '100%',
-                                padding: '8px 10px',
-                                borderRadius: '6px',
-                                border: '1px solid rgba(99, 102, 241, 0.3)',
+                                flex: 1,
+                                padding: '10px 12px',
+                                borderRadius: '8px',
+                                border: '1px solid rgba(239, 68, 68, 0.2)',
                                 backgroundColor: 'rgba(0,0,0,0.3)',
                                 color: '#e5e5e5',
-                                fontSize: '12px',
+                                fontSize: '13px',
                                 outline: 'none',
                                 fontFamily: 'monospace',
-                                boxSizing: 'border-box',
                             }}
                         />
-                    </div>
-
-                    <div style={{ marginBottom: '10px' }}>
-                        <label style={{
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: '6px',
-                            fontSize: '11px',
-                            color: '#a3a3a3',
-                            marginBottom: '4px',
-                            fontWeight: 500,
-                        }}>
-                            <Crosshair size={12} /> Instructions (optional)
-                        </label>
-                        <textarea
-                            value={customInstruction}
-                            onChange={(e) => setCustomInstruction(e.target.value)}
-                            placeholder="Challenge context, hints, or specific instructions..."
-                            rows={2}
+                        <button
+                            onClick={handleStart}
+                            disabled={!target.trim()}
                             style={{
-                                width: '100%',
-                                padding: '8px 10px',
-                                borderRadius: '6px',
-                                border: '1px solid rgba(255,255,255,0.08)',
-                                backgroundColor: 'rgba(0,0,0,0.3)',
-                                color: '#e5e5e5',
-                                fontSize: '12px',
-                                outline: 'none',
-                                resize: 'vertical',
-                                fontFamily: 'inherit',
-                                boxSizing: 'border-box',
-                            }}
-                        />
-                    </div>
-
-                    {models.length > 0 && (
-                        <div style={{ marginBottom: '10px' }}>
-                            <label style={{
                                 display: 'flex',
                                 alignItems: 'center',
                                 gap: '6px',
-                                fontSize: '11px',
-                                color: '#a3a3a3',
-                                marginBottom: '4px',
-                                fontWeight: 500,
-                            }}>
-                                <Zap size={12} /> Model
-                            </label>
-                            <select
-                                value={model}
-                                onChange={(e) => setModel(e.target.value)}
-                                style={{
-                                    width: '100%',
-                                    padding: '8px 10px',
-                                    borderRadius: '6px',
-                                    border: '1px solid rgba(255,255,255,0.08)',
-                                    backgroundColor: 'rgba(0,0,0,0.3)',
-                                    color: '#e5e5e5',
-                                    fontSize: '12px',
-                                    outline: 'none',
-                                    boxSizing: 'border-box',
-                                }}
-                            >
-                                <option value="">Auto-detect</option>
-                                {models.map((m) => (
-                                    <option key={m} value={m}>{m}</option>
-                                ))}
-                            </select>
-                        </div>
-                    )}
-
-                    <button
-                        onClick={handleStart}
-                        disabled={!target.trim()}
+                                padding: '10px 20px',
+                                borderRadius: '8px',
+                                border: 'none',
+                                backgroundColor: target.trim() ? '#ef4444' : '#374151',
+                                color: target.trim() ? '#fff' : '#6b7280',
+                                fontSize: '13px',
+                                fontWeight: 600,
+                                cursor: target.trim() ? 'pointer' : 'not-allowed',
+                                transition: 'all 0.2s',
+                            }}
+                        >
+                            <Play size={14} /> Start
+                        </button>
+                    </div>
+                    <textarea
+                        value={customInstruction}
+                        onChange={(e) => setCustomInstruction(e.target.value)}
+                        placeholder="Custom instructions (optional)... e.g. 'Focus on web exploitation, target is running Apache'"
+                        rows={2}
                         style={{
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            gap: '8px',
-                            width: '100%',
-                            padding: '10px',
-                            borderRadius: '8px',
-                            border: 'none',
-                            fontSize: '13px',
-                            fontWeight: 600,
-                            cursor: target.trim() ? 'pointer' : 'not-allowed',
-                            backgroundColor: target.trim() ? '#dc2626' : '#374151',
-                            color: target.trim() ? '#fff' : '#6b7280',
-                            transition: 'all 0.2s',
-                        }}
-                    >
-                        <Play size={16} />
-                        Start Pentest
-                    </button>
-                </div>
-            )}
-
-            {/* Agent Controls (when running/paused) */}
-            {isActive && (
-                <div style={{
-                    display: 'flex',
-                    gap: '6px',
-                    padding: '8px 12px',
-                    borderBottom: '1px solid rgba(255,255,255,0.06)',
-                }}>
-                    <button
-                        onClick={() => isPaused ? resumePentest() : pausePentest()}
-                        style={{
-                            flex: 1,
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            gap: '6px',
-                            padding: '8px',
-                            borderRadius: '6px',
-                            border: '1px solid',
-                            borderColor: isPaused ? 'rgba(34, 197, 94, 0.3)' : 'rgba(245, 158, 11, 0.3)',
-                            backgroundColor: isPaused ? 'rgba(34, 197, 94, 0.1)' : 'rgba(245, 158, 11, 0.1)',
-                            color: isPaused ? '#22c55e' : '#f59e0b',
-                            fontSize: '12px',
-                            fontWeight: 500,
-                            cursor: 'pointer',
-                        }}
-                    >
-                        {isPaused ? <Play size={14} /> : <Pause size={14} />}
-                        {isPaused ? 'Resume' : 'Pause'}
-                    </button>
-                    <button
-                        onClick={() => stopPentest()}
-                        style={{
-                            flex: 1,
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            gap: '6px',
-                            padding: '8px',
-                            borderRadius: '6px',
-                            border: '1px solid rgba(239, 68, 68, 0.3)',
-                            backgroundColor: 'rgba(239, 68, 68, 0.1)',
-                            color: '#ef4444',
-                            fontSize: '12px',
-                            fontWeight: 500,
-                            cursor: 'pointer',
-                        }}
-                    >
-                        <Square size={14} />
-                        Stop
-                    </button>
-                </div>
-            )}
-
-            {/* Instruction Injection (when paused) */}
-            {isPaused && (
-                <div style={{
-                    display: 'flex',
-                    gap: '6px',
-                    padding: '8px 12px',
-                    borderBottom: '1px solid rgba(255,255,255,0.06)',
-                }}>
-                    <input
-                        type="text"
-                        value={injectionText}
-                        onChange={(e) => setInjectionText(e.target.value)}
-                        onKeyDown={(e) => e.key === 'Enter' && handleInject()}
-                        placeholder="Inject instruction..."
-                        style={{
-                            flex: 1,
                             padding: '8px 10px',
                             borderRadius: '6px',
-                            border: '1px solid rgba(99, 102, 241, 0.3)',
-                            backgroundColor: 'rgba(0,0,0,0.3)',
+                            border: '1px solid rgba(255,255,255,0.08)',
+                            backgroundColor: 'rgba(0,0,0,0.2)',
                             color: '#e5e5e5',
                             fontSize: '12px',
                             outline: 'none',
+                            resize: 'vertical',
+                            fontFamily: 'inherit',
                         }}
                     />
-                    <button
-                        onClick={handleInject}
-                        disabled={!injectionText.trim()}
-                        style={{
-                            padding: '8px 12px',
-                            borderRadius: '6px',
-                            border: 'none',
-                            backgroundColor: injectionText.trim() ? '#6366f1' : '#374151',
-                            color: injectionText.trim() ? '#fff' : '#6b7280',
-                            cursor: injectionText.trim() ? 'pointer' : 'not-allowed',
-                        }}
-                    >
-                        <Send size={14} />
-                    </button>
                 </div>
             )}
 
-            {/* Completed state — allow restart */}
-            {agentState === 'completed' && (
+            {/* Running controls */}
+            {isRunning && (
                 <div style={{
-                    padding: '12px',
+                    display: 'flex',
+                    gap: '6px',
+                    padding: '6px 12px',
                     borderBottom: '1px solid rgba(255,255,255,0.06)',
-                    textAlign: 'center',
+                    alignItems: 'center',
                 }}>
-                    <div style={{
-                        color: '#6366f1',
-                        fontSize: '12px',
-                        marginBottom: '8px',
+                    {agentState === 'running' && (
+                        <button onClick={pausePentest} style={{
+                            display: 'flex', alignItems: 'center', gap: '4px',
+                            padding: '5px 12px', borderRadius: '6px', border: 'none',
+                            backgroundColor: 'rgba(245, 158, 11, 0.15)', color: '#f59e0b',
+                            fontSize: '11px', fontWeight: 500, cursor: 'pointer',
+                        }}>
+                            <Pause size={12} /> Pause
+                        </button>
+                    )}
+                    {agentState === 'paused' && (
+                        <button onClick={() => resumePentest()} style={{
+                            display: 'flex', alignItems: 'center', gap: '4px',
+                            padding: '5px 12px', borderRadius: '6px', border: 'none',
+                            backgroundColor: 'rgba(34, 197, 94, 0.15)', color: '#22c55e',
+                            fontSize: '11px', fontWeight: 500, cursor: 'pointer',
+                        }}>
+                            <Play size={12} /> Resume
+                        </button>
+                    )}
+                    <button onClick={stopPentest} style={{
+                        display: 'flex', alignItems: 'center', gap: '4px',
+                        padding: '5px 12px', borderRadius: '6px', border: 'none',
+                        backgroundColor: 'rgba(239, 68, 68, 0.15)', color: '#ef4444',
+                        fontSize: '11px', fontWeight: 500, cursor: 'pointer',
                     }}>
-                        ✅ Pentest session completed
-                    </div>
-                    <button
-                        onClick={() => setAgentState('idle')}
-                        style={{
-                            padding: '8px 24px',
-                            borderRadius: '6px',
-                            border: '1px solid rgba(220, 38, 38, 0.3)',
-                            backgroundColor: 'rgba(220, 38, 38, 0.1)',
-                            color: '#ef4444',
-                            fontSize: '12px',
-                            fontWeight: 500,
-                            cursor: 'pointer',
-                        }}
-                    >
-                        New Pentest
+                        <Square size={12} /> Stop
                     </button>
+
+                    {/* Instruction input */}
+                    <div style={{ display: 'flex', flex: 1, gap: '4px' }}>
+                        <input
+                            ref={inputRef}
+                            type="text"
+                            value={instruction}
+                            onChange={(e) => setInstruction(e.target.value)}
+                            onKeyDown={(e) => e.key === 'Enter' && handleInject()}
+                            placeholder="Inject instruction..."
+                            style={{
+                                flex: 1,
+                                padding: '5px 8px',
+                                borderRadius: '4px',
+                                border: '1px solid rgba(255,255,255,0.08)',
+                                backgroundColor: 'rgba(0,0,0,0.3)',
+                                color: '#e5e5e5',
+                                fontSize: '11px',
+                                outline: 'none',
+                            }}
+                        />
+                        <button onClick={handleInject} disabled={!instruction.trim()} style={{
+                            padding: '5px 8px', borderRadius: '4px', border: 'none',
+                            backgroundColor: instruction.trim() ? 'rgba(99, 102, 241, 0.2)' : 'transparent',
+                            color: instruction.trim() ? '#6366f1' : '#525252',
+                            cursor: instruction.trim() ? 'pointer' : 'default',
+                        }}>
+                            <Send size={12} />
+                        </button>
+                    </div>
                 </div>
             )}
 
-            {/* Flag Display */}
-            <FlagDisplay />
+            {/* Flags */}
+            {flagsFound.length > 0 && (
+                <div style={{
+                    padding: '6px 12px',
+                    borderBottom: '1px solid rgba(255,255,255,0.06)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    flexWrap: 'wrap',
+                }}>
+                    <Flag size={12} color="#22c55e" />
+                    {flagsFound.map((f, i) => (
+                        <FlagDisplay key={i} flag={f.flag} context={f.context} />
+                    ))}
+                </div>
+            )}
 
-            {/* Activity Feed */}
-            <PentestActivityFeed />
+            {/* Tabs */}
+            <TabBar />
 
-            {/* Session Manager */}
-            <SessionManager />
+            {/* Tab content */}
+            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0, overflow: 'hidden' }}>
+                {activeTab === 'activity' && <ActivityFeed />}
+                {activeTab === 'kb' && <KnowledgeBaseView />}
+                {activeTab === 'report' && <ReportView />}
+                {activeTab === 'payload' && <PayloadGenerator />}
+            </div>
 
-            {/* CSS Animation */}
             <style>{`
-                @keyframes pulse {
+                @keyframes state-pulse {
                     0%, 100% { opacity: 1; }
-                    50% { opacity: 0.5; }
+                    50% { opacity: 0.4; }
                 }
             `}</style>
         </div>

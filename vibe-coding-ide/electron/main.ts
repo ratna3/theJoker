@@ -16,6 +16,7 @@ import { ProjectManager } from './projectManager';
 import { DependencyInstaller } from './dependencyInstaller';
 import { sanitizeFilePath } from './responseParser';
 import { getPentestController } from './pentestAgent';
+import { PentestToolExecutor, PENTEST_TOOLS } from './pentestTools';
 
 let mainWindow: BrowserWindow | null = null;
 
@@ -503,6 +504,77 @@ function registerIpcHandlers(): void {
     ipcMain.handle('pentest-delete-session', async (_event, id: string) => {
         const controller = getPentestController();
         return controller.deleteSession(id);
+    });
+
+    // ── ENDj0K3R v2.0 IPC ──
+
+    ipcMain.handle('pentest-resume-session', async (_event, id: string) => {
+        try {
+            const controller = getPentestController();
+            if (mainWindow) {
+                controller.resumeSession(id, mainWindow).catch((err: any) => {
+                    mainWindow?.webContents.send('pentest-activity', {
+                        id: 'err-' + Date.now(),
+                        type: 'message',
+                        content: `Resume error: ${err.message}`,
+                        messageType: 'error',
+                        timestamp: Date.now(),
+                    });
+                });
+            }
+            return { success: true };
+        } catch (err: any) {
+            return { success: false, error: err.message };
+        }
+    });
+
+    ipcMain.handle('pentest-set-mode', async (_event, mode: string) => {
+        const controller = getPentestController();
+        controller.setExecutionMode(mode as any);
+        return true;
+    });
+
+    ipcMain.handle('pentest-get-mode', async () => {
+        const controller = getPentestController();
+        return controller.getExecutionMode();
+    });
+
+    ipcMain.handle('pentest-approve-command', async (_event, editedCommand?: string) => {
+        const controller = getPentestController();
+        return controller.approveCommand(mainWindow!, editedCommand);
+    });
+
+    ipcMain.handle('pentest-reject-command', async () => {
+        const controller = getPentestController();
+        return controller.rejectCommand(mainWindow!);
+    });
+
+    ipcMain.handle('pentest-get-kb', async () => {
+        const controller = getPentestController();
+        return controller.getKBState();
+    });
+
+    ipcMain.handle('pentest-generate-report', async () => {
+        try {
+            const controller = getPentestController();
+            const report = await controller.generateReport(mainWindow!);
+            return { success: true, report };
+        } catch (err: any) {
+            return { success: false, error: err.message };
+        }
+    });
+
+    ipcMain.handle('pentest-generate-payload', async (_event, config: any) => {
+        try {
+            const { PentestToolExecutor } = require('./pentestTools');
+            const { PentestKnowledgeBase } = require('./pentestKnowledgeBase');
+            const kb = new PentestKnowledgeBase();
+            const executor = new PentestToolExecutor('', kb, async () => '');
+            const payload = await executor.executeTool('generate_payload', config);
+            return { success: true, payload };
+        } catch (err: any) {
+            return { success: false, error: err.message };
+        }
     });
 
     // ── Dialog IPC ──

@@ -1,78 +1,58 @@
 /**
- * ENDj0K3R — Flag Detection Display
- * Shows captured flags in a dedicated section
+ * ENDj0K3R — Flag Display v2.0
+ * Compact inline flag badge with copy-to-clipboard
  */
 
-import React from 'react';
-import { usePentestStore } from '../../store/pentestStore';
-import { Flag, Copy, Check } from 'lucide-react';
+import React, { useState } from 'react';
+import { Copy, Check } from 'lucide-react';
 
-export const FlagDisplay: React.FC = () => {
-    const flagsFound = usePentestStore((s) => s.flagsFound);
-    const [copiedIdx, setCopiedIdx] = React.useState<number | null>(null);
+interface FlagDisplayProps {
+    flag: string;
+    context: string;
+}
 
-    if (flagsFound.length === 0) return null;
+export const FlagDisplay: React.FC<FlagDisplayProps> = ({ flag, context }) => {
+    const [copied, setCopied] = useState(false);
 
-    const handleCopy = (flag: string, idx: number) => {
+    const handleCopy = (e: React.MouseEvent) => {
+        e.stopPropagation();
         navigator.clipboard.writeText(flag);
-        setCopiedIdx(idx);
-        setTimeout(() => setCopiedIdx(null), 2000);
+        setCopied(true);
+        setTimeout(() => setCopied(false), 2000);
     };
 
     return (
-        <div style={{
-            padding: '8px 12px',
-            borderTop: '1px solid rgba(34, 197, 94, 0.3)',
-            backgroundColor: 'rgba(34, 197, 94, 0.05)',
-        }}>
-            <div style={{
-                display: 'flex',
+        <div
+            onClick={handleCopy}
+            title={`${context}\nClick to copy`}
+            style={{
+                display: 'inline-flex',
                 alignItems: 'center',
-                gap: '6px',
-                marginBottom: '8px',
-                color: '#22c55e',
-                fontSize: '12px',
+                gap: '4px',
+                padding: '3px 8px',
+                borderRadius: '6px',
+                backgroundColor: 'rgba(34, 197, 94, 0.1)',
+                border: '1px solid rgba(34, 197, 94, 0.25)',
+                cursor: 'pointer',
+                transition: 'all 0.2s',
+                maxWidth: '300px',
+            }}
+        >
+            <span style={{
+                fontFamily: 'monospace',
+                fontSize: '11px',
                 fontWeight: 600,
+                color: '#22c55e',
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+                whiteSpace: 'nowrap',
             }}>
-                <Flag size={14} />
-                🚩 Flags Found ({flagsFound.length})
-            </div>
-            {flagsFound.map((f, idx) => (
-                <div key={idx} style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
-                    padding: '6px 10px',
-                    marginBottom: '4px',
-                    backgroundColor: 'rgba(34, 197, 94, 0.1)',
-                    borderRadius: '6px',
-                    border: '1px solid rgba(34, 197, 94, 0.2)',
-                }}>
-                    <span style={{
-                        fontFamily: 'monospace',
-                        fontSize: '12px',
-                        color: '#22c55e',
-                        fontWeight: 600,
-                        wordBreak: 'break-all',
-                    }}>
-                        {f.flag}
-                    </span>
-                    <button
-                        onClick={() => handleCopy(f.flag, idx)}
-                        style={{
-                            background: 'none',
-                            border: 'none',
-                            cursor: 'pointer',
-                            color: copiedIdx === idx ? '#22c55e' : '#6b7280',
-                            padding: '4px',
-                            flexShrink: 0,
-                        }}
-                        title="Copy flag"
-                    >
-                        {copiedIdx === idx ? <Check size={14} /> : <Copy size={14} />}
-                    </button>
-                </div>
-            ))}
+                {flag}
+            </span>
+            {copied
+                ? <Check size={10} color="#22c55e" />
+                : <Copy size={10} color="#22c55e" style={{ opacity: 0.5 }} />
+            }
         </div>
     );
 };

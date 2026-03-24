@@ -59,7 +59,8 @@
         ],
         "win": {
             "target": "nsis",
-            "icon": "build/theJoker.ico"
+            "icon": "build/theJoker.ico",
+            "publisherName": "Ratna Kirti"
         },
         "nsis": {
             "oneClick": false,
